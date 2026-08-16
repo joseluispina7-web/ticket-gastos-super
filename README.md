@@ -4,7 +4,7 @@ Web multiusuario para subir tickets de supermercado, revisar lineas de compra y 
 
 ## Web
 
-La URL final se genera al publicar con Sites.
+https://ticket-gastos-super.erpozi.chatgpt.site
 
 ## Idea del producto
 
