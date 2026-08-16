@@ -1,0 +1,11 @@
+{
+  "name": "ticket-gastos-super",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo static",
+    "build:local": "py scripts/build.py",
+    "dev": "py scripts/dev_server.py"
+  }
+}
