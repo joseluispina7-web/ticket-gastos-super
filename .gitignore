@@ -1,5 +1,7 @@
 site.tar.gz
 .site-source/
 .env
+.env.*
+!.env.example
 node_modules/
 dist/

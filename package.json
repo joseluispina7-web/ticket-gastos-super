@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:local": "node scripts/build.mjs",
-    "dev": "py scripts/dev_server.py",
-    "test": "node scripts/test_client.mjs"
+    "dev": "node scripts/dev_server.mjs",
+    "test": "node scripts/test_client.mjs",
+    "check": "node scripts/check.mjs"
   }
 }
