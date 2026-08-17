@@ -16,6 +16,9 @@ https://ticket-gastos-super.erpozi.chatgpt.site
 - Revision manual antes de guardar.
 - Categorias aprendidas por usuario.
 - Dashboard mensual con total, tickets, productos unicos, categoria top, donut de categorias, historico, total anual y top productos.
+- Comparador con precios actuales de Mercadona, Lidl y DIA.
+- Normalizacion por `EUR/kg`, `EUR/L` o `EUR/unidad`, con enlace y fecha de consulta.
+- Plan de compra privado por usuario, con tienda, precio estimado y ahorro comparable.
 - Estado vacio real: la aplicacion no muestra supermercados ni importes inventados.
 
 ## Archivos clave
@@ -23,8 +26,10 @@ https://ticket-gastos-super.erpozi.chatgpt.site
 - `AGENTS.md`: contrato del producto, arquitectura y relevo completo para otro ChatGPT/Codex.
 - `web/index.html`: interfaz completa, estilos y logica del cliente.
 - `server/index.js`: backend de Sites con usuarios, sesiones, tickets e items.
+- `server/comparison.js`: adaptadores, normalizacion, similitud y comparacion de precios.
 - `scripts/build.mjs`: genera el arbol desplegable `dist/`.
 - `scripts/test_client.mjs`: valida el parser, las categorias y la reconstruccion de lineas de PDF.
+- `scripts/test_comparison.mjs`: valida formatos, coincidencias y las tres fuentes con fixtures.
 - `.openai/hosting.json`: configuracion de Sites y D1.
 
 ## Trabajar desde cualquier ordenador
@@ -42,9 +47,17 @@ La vista local queda disponible en `http://127.0.0.1:8788/?preview=1`. Los coman
 
 Cada cambio debe hacerse en una rama `codex/<tema>` y terminar en una pull request. GitHub ejecuta automaticamente las pruebas y la compilacion mediante `.github/workflows/ci.yml`.
 
-## Comparador de precios: siguiente fase
+## Comparador de precios: estado actual
 
-El comparador debe tratar cada supermercado como una fuente independiente y guardar la fecha de actualizacion de cada precio. Antes de comparar, todos los formatos se normalizaran a `EUR/kg`, `EUR/L` o `EUR/unidad`.
+La fase 2 ya incluye tres vistas: resumen de tickets, comparador y plan de compra. El backend trata cada supermercado como una fuente independiente, conserva la fecha de consulta y tolera que una tienda falle sin ocultar los resultados validos de las demas.
+
+Fuentes activas verificadas el 17 de agosto de 2026:
+
+- Mercadona mediante su indice publico de busqueda.
+- Lidl Espana mediante su buscador publico.
+- DIA mediante su buscador de catalogo publico.
+
+Los precios pueden depender de zona, disponibilidad y formato. La interfaz muestra el precio del paquete y, cuando la fuente aporta cantidad suficiente, su equivalente en `EUR/kg`, `EUR/L` o `EUR/unidad`. No se inventan resultados cuando una fuente no responde.
 
 La comparacion final tambien tendra en cuenta:
 
@@ -54,7 +67,9 @@ La comparacion final tambien tendra en cuenta:
 - Similitud real del producto, evitando comparar variedades distintas solo porque comparten una palabra.
 - Enlace a la ficha original y aviso cuando un precio no se pueda verificar.
 
-Mercadona, Dia, Alcampo y Lidl ofrecen fuentes que se pueden consultar con adaptadores separados. Carrefour y El Corte Ingles requieren una estrategia de navegador mantenida, porque sus protecciones bloquean clientes HTTP simples. Por eso el comparador se desarrollara como una capa desacoplada del lector de tickets.
+Alcampo y Carrefour figuran como proximas fuentes. Actualmente bloquean consultas HTTP simples y requieren un adaptador de navegador mantenido. El Corte Ingles, Supercor, Hipercor y otros supermercados se incorporaran despues de estabilizar codigo postal, similitud y disponibilidad regional.
+
+El trabajo de investigacion de adaptadores se apoyo en `jgalea/grocery-cli`; la atribucion y su licencia MIT estan en `THIRD_PARTY_NOTICES.md`.
 
 ## Variables de entorno
 
@@ -91,12 +106,14 @@ Mantener:
 - Pantalla de revision antes de guardar.
 - Categorias aprendidas por usuario.
 - Historico por mes y ano.
-- Preparar integracion futura para comparar precios por supermercado.
+- Comparador real de Mercadona, Lidl y DIA por kilo, litro o unidad.
+- Plan de compra persistente por usuario.
 
 Archivos clave:
 - AGENTS.md
 - web/index.html
 - server/index.js
+- server/comparison.js
 - scripts/build.mjs
 ```
 

@@ -7,6 +7,8 @@ Read this file and `README.md` before changing the project. The GitHub repositor
 - Keep every user's receipts isolated by `user_id`.
 - Keep the initial limit of three users and the invite-code registration flow.
 - Never add invented supermarkets, receipts, products or amounts to the real dashboard.
+- Never fabricate comparison offers. Surface empty or unavailable stores explicitly and keep successful stores usable.
+- Compare only products with the same normalized unit (`kg`, `L` or `unit`).
 - Keep a manual review step before saving OCR or parsed receipt data.
 - Preserve learned per-user category rules.
 - Treat receipt totals as authoritative for spending KPIs; item totals may differ because of discounts or OCR errors.
@@ -16,7 +18,9 @@ Read this file and `README.md` before changing the project. The GitHub repositor
 
 - `web/index.html`: complete client, styles, PDF text extraction, Tesseract OCR, parsing and review UI.
 - `server/index.js`: Sites/Worker backend, authentication, D1 schema, receipts and dashboard API.
+- `server/comparison.js`: independent Mercadona, Lidl and DIA adapters, matching, normalization and short-lived cache.
 - `scripts/build.mjs`: creates the deployable `dist/` tree.
+- `scripts/test_comparison.mjs`: deterministic adapter and price-normalization fixtures.
 - `.openai/hosting.json`: persistent Sites project ID and D1 binding.
 - `scripts/push_sites_source.py`: pushes a built source snapshot using a short-lived Sites repository credential.
 
@@ -44,10 +48,20 @@ Publishing to the existing URL requires the ChatGPT/Sites account that owns the 
 
 If Sites returns `project_not_found`, continue development through GitHub but do not deploy or alter `.openai/hosting.json`. The owner account must publish later. Creating a replacement Site is a migration decision because it creates a new URL and D1 database.
 
+## Current comparison behavior
+
+- Active sources: Mercadona, Lidl Spain and DIA.
+- All three requests run independently; one failure must not fail the entire comparison.
+- Results include source links, retrieval time, pack price and normalized price when available.
+- Shopping-plan rows are private by `user_id` in D1.
+- Alcampo and Carrefour remain explicitly pending because their storefronts block simple HTTP clients.
+- Source endpoints can change. Update one adapter without coupling it to receipt parsing or another store.
+
 ## Next product work
 
 - Calibrate parsers with anonymized real tickets from each supermarket.
 - Add fixtures for Carrefour, Mercadona, Lidl, Alcampo, Dia, Aldi, Eroski, Supercor and Hipercor.
-- Build price comparison as separate store adapters with timestamps and source URLs.
-- Normalize offers to EUR/kg, EUR/L or EUR/unit and include availability, shipping and minimum order.
+- Add postcode/store selection and regional availability to active adapters.
+- Add maintained browser adapters for Carrefour and Alcampo.
+- Include shipping, minimum order and promotion conditions without folding them into the base unit price.
 - Keep browser-based adapters isolated because store anti-bot behavior changes independently.
