@@ -147,6 +147,25 @@
       font-weight: 800;
     }
 
+    .view-tabs {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      margin-bottom: 18px;
+      border-radius: 8px;
+      background: rgba(255, 250, 243, 0.12);
+      border: 1px solid rgba(255, 250, 243, 0.18);
+    }
+    .view-tab {
+      min-height: 40px;
+      padding: 9px 14px;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255, 250, 243, 0.76);
+      font-weight: 800;
+    }
+    .view-tab[aria-selected="true"] { background: var(--paper); color: var(--forest); }
+
     .kpis {
       display: grid;
       grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -452,6 +471,131 @@
       font-weight: 400;
     }
 
+    .compare-controls,
+    .plan-surface {
+      background: var(--paper);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 24px 28px;
+    }
+    .compare-controls { margin-bottom: 20px; }
+    .compare-search {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) 150px auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .compare-search .field { margin: 0; }
+    .compare-search button { min-width: 112px; }
+    .quick-searches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .quick-search {
+      padding: 7px 10px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: #fffaf3;
+      color: var(--forest);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .source-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .source-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .source-dot { width: 8px; height: 8px; border-radius: 50%; background: #aaa; }
+    .source-status.is-ok .source-dot { background: var(--green); }
+    .source-status.is-empty .source-dot { background: var(--gold); }
+    .source-status.is-unavailable .source-dot { background: var(--red); }
+
+    .comparison-highlight {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      padding: 20px 24px;
+      margin: 0 0 22px;
+      background: #dce8dc;
+      border-left: 5px solid var(--green);
+      color: var(--forest);
+    }
+    .comparison-highlight span { color: var(--muted); text-transform: uppercase; font-size: 11px; font-weight: 900; }
+    .comparison-highlight strong { display: block; margin-top: 3px; font-family: "DM Serif Display", Georgia, serif; font-size: 31px; font-weight: 400; }
+    .comparison-highlight .saving { text-align: right; }
+    .comparison-highlight .saving strong { font-size: 25px; }
+
+    .store-results {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+    .store-section { min-width: 0; }
+    .store-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      color: #fffaf3;
+      padding: 0 2px 10px;
+    }
+    .store-head h3 { margin: 0; font-family: "DM Serif Display", Georgia, serif; font-size: 27px; font-weight: 400; }
+    .store-head span { color: rgba(255, 250, 243, 0.68); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .offer-list { display: grid; gap: 10px; }
+    .offer-card {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 12px;
+      min-height: 138px;
+      padding: 12px;
+      border-radius: 8px;
+      background: var(--paper);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 10px 28px rgba(4, 20, 12, 0.12);
+    }
+    .offer-card.is-cheapest { border-color: #79a77f; box-shadow: 0 0 0 2px rgba(77, 133, 92, 0.2), 0 10px 28px rgba(4, 20, 12, 0.12); }
+    .offer-image {
+      width: 76px;
+      height: 76px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .offer-image-placeholder { display: grid; place-items: center; color: var(--muted); font-size: 11px; font-weight: 800; }
+    .offer-body { min-width: 0; display: grid; align-content: start; gap: 5px; }
+    .offer-body h4 { margin: 0; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+    .offer-brand { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .offer-prices { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+    .offer-prices strong { font-family: "DM Serif Display", Georgia, serif; font-size: 23px; font-weight: 400; }
+    .unit-price { color: var(--forest); font-size: 12px; font-weight: 900; }
+    .offer-actions { display: flex; gap: 7px; align-items: center; margin-top: 3px; }
+    .offer-actions a { color: var(--forest); font-size: 11px; font-weight: 800; }
+    .offer-actions button { padding: 6px 8px; min-height: 30px; font-size: 11px; }
+    .store-empty {
+      min-height: 138px;
+      padding: 18px;
+      border: 1px dashed rgba(255, 250, 243, 0.34);
+      color: rgba(255, 250, 243, 0.72);
+      font-size: 13px;
+    }
+    .upcoming-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    .upcoming-source { color: rgba(255, 250, 243, 0.72); font-size: 12px; font-weight: 700; }
+    .upcoming-source strong { color: #fffaf3; }
+
+    .plan-head { display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 18px; }
+    .plan-head h2 { margin: 0; font-family: "DM Serif Display", Georgia, serif; font-size: 31px; font-weight: 400; }
+    .plan-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .plan-store { font-weight: 900; color: var(--forest); }
+    .plan-product { display: grid; gap: 3px; }
+    .plan-product small { color: var(--muted); }
+    .plan-link { color: var(--forest); font-weight: 800; }
+    .table-scroll { width: 100%; overflow-x: auto; }
+
     .overlay {
       position: fixed;
       inset: 0;
@@ -464,6 +608,7 @@
       .grid { grid-template-columns: 1fr; }
       .chart-wrap { grid-template-columns: 1fr; }
       .legend { grid-template-columns: 1fr; }
+      .store-results { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 680px) {
@@ -471,6 +616,8 @@
       .topbar { align-items: stretch; flex-direction: column; }
       .top-controls { justify-content: stretch; }
       .top-controls > * { flex: 1 1 120px; }
+      .view-tabs { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+      .view-tab { padding-inline: 7px; }
       .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
       .kpi { min-height: 86px; padding: 13px; }
       .kpi span { font-size: 11px; }
@@ -478,6 +625,13 @@
       .panel { padding: 17px 15px; }
       .panel h2 { font-size: 25px; }
       .review-meta { grid-template-columns: 1fr; }
+      .compare-controls, .plan-surface { padding: 17px 15px; }
+      .compare-search { grid-template-columns: 1fr; }
+      .comparison-highlight { grid-template-columns: 1fr; }
+      .comparison-highlight .saving { text-align: left; }
+      .offer-card { grid-template-columns: 64px minmax(0, 1fr); }
+      .offer-image { width: 64px; height: 64px; }
+      .plan-kpis { grid-template-columns: 1fr 1fr; }
       table { font-size: 12px; }
       th, td { padding: 8px 5px; }
     }
@@ -515,17 +669,24 @@
         <p id="monthTitle">Resumen mensual</p>
       </div>
       <div class="top-controls">
-        <input id="monthInput" type="month">
-        <button id="openImportBtn" class="secondary">Importar ticket</button>
+        <input id="monthInput" class="dashboard-control" type="month">
+        <button id="openImportBtn" class="secondary dashboard-control">Importar ticket</button>
         <span id="userPill" class="user-pill"></span>
         <button id="logoutBtn" class="ghost">Salir</button>
       </div>
     </header>
 
-    <section id="kpiGrid" class="kpis"></section>
+    <nav class="view-tabs" aria-label="Vistas">
+      <button class="view-tab" data-view="dashboard" aria-selected="true">Resumen</button>
+      <button class="view-tab" data-view="comparator" aria-selected="false">Comparador</button>
+      <button class="view-tab" data-view="plan" aria-selected="false">Plan de compra</button>
+    </nav>
 
-    <section class="grid">
-      <section class="panel">
+    <section id="dashboardView" class="page-view">
+      <section id="kpiGrid" class="kpis"></section>
+
+      <section class="grid">
+        <section class="panel">
         <div class="panel-head">
           <div>
             <h2>Gasto por categoria</h2>
@@ -536,9 +697,9 @@
           <svg id="categoryChart" class="donut" viewBox="0 0 220 220" role="img" aria-label="Gasto por categoria"></svg>
           <div id="categoryLegend" class="legend"></div>
         </div>
-      </section>
+        </section>
 
-      <aside class="side-stack">
+        <aside class="side-stack">
         <section class="panel">
           <h2 class="section-title">Historico anual</h2>
           <div class="annual-summary">
@@ -559,7 +720,57 @@
           </div>
           <div id="receiptList"></div>
         </section>
-      </aside>
+        </aside>
+      </section>
+    </section>
+
+    <section id="comparatorView" class="page-view" hidden>
+      <section class="compare-controls">
+        <div class="panel-head">
+          <div>
+            <h2>Comparador de precios</h2>
+            <p id="comparisonTimestamp" class="subtle">Mercadona, Lidl y DIA</p>
+          </div>
+        </div>
+        <form id="compareForm" class="compare-search">
+          <label class="field">
+            <span>Producto</span>
+            <input id="compareQuery" autocomplete="off" placeholder="Panales talla 6">
+          </label>
+          <label class="field">
+            <span>Orden</span>
+            <select id="compareSort">
+              <option value="unit">Precio comparable</option>
+              <option value="pack">Precio del paquete</option>
+            </select>
+          </label>
+          <button id="compareBtn" class="primary" type="submit">Buscar</button>
+        </form>
+        <div id="quickSearches" class="quick-searches">
+          <button class="quick-search" data-query="panales talla 6">Panales talla 6</button>
+          <button class="quick-search" data-query="leche entera 1 l">Leche entera</button>
+          <button class="quick-search" data-query="salmon">Salmon</button>
+        </div>
+        <div id="compareStatus" class="status"></div>
+        <div id="compareSources" class="source-row"></div>
+      </section>
+      <section id="comparisonSummary" class="comparison-highlight" hidden></section>
+      <div id="storeResults" class="store-results"></div>
+      <div id="upcomingStores" class="upcoming-row"></div>
+    </section>
+
+    <section id="planView" class="page-view" hidden>
+      <section class="plan-surface">
+        <div class="plan-head">
+          <div>
+            <h2>Plan de compra</h2>
+            <p class="subtle">Seleccion guardada por supermercado</p>
+          </div>
+          <button id="clearPlanBtn" class="danger">Vaciar plan</button>
+        </div>
+        <section id="planKpis" class="kpis plan-kpis"></section>
+        <div id="planList"></div>
+      </section>
     </section>
   </main>
 
@@ -711,14 +922,37 @@
       reviewRows: document.getElementById("reviewRows"),
       reviewComputedTotal: document.getElementById("reviewComputedTotal"),
       addRowBtn: document.getElementById("addRowBtn"),
-      saveReceiptBtn: document.getElementById("saveReceiptBtn")
+      saveReceiptBtn: document.getElementById("saveReceiptBtn"),
+      viewTabs: document.querySelectorAll(".view-tab"),
+      dashboardControls: document.querySelectorAll(".dashboard-control"),
+      dashboardView: document.getElementById("dashboardView"),
+      comparatorView: document.getElementById("comparatorView"),
+      planView: document.getElementById("planView"),
+      compareForm: document.getElementById("compareForm"),
+      compareQuery: document.getElementById("compareQuery"),
+      compareSort: document.getElementById("compareSort"),
+      compareBtn: document.getElementById("compareBtn"),
+      quickSearches: document.getElementById("quickSearches"),
+      compareStatus: document.getElementById("compareStatus"),
+      compareSources: document.getElementById("compareSources"),
+      comparisonTimestamp: document.getElementById("comparisonTimestamp"),
+      comparisonSummary: document.getElementById("comparisonSummary"),
+      storeResults: document.getElementById("storeResults"),
+      upcomingStores: document.getElementById("upcomingStores"),
+      clearPlanBtn: document.getElementById("clearPlanBtn"),
+      planKpis: document.getElementById("planKpis"),
+      planList: document.getElementById("planList")
     };
 
     var state = {
       user: null,
       dashboard: null,
       month: new Date().toISOString().slice(0, 7),
-      review: null
+      review: null,
+      view: "dashboard",
+      comparison: null,
+      shoppingPlan: [],
+      planLoaded: false
     };
 
     function escapeHtml(value) {
@@ -738,6 +972,236 @@
     function monthLabel(month) {
       var date = new Date(month + "-01T00:00:00");
       return new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(date);
+    }
+
+    function unitLabel(unit) {
+      return unit === "kg" ? "EUR/kg" : unit === "L" ? "EUR/L" : unit === "unit" ? "EUR/unidad" : "";
+    }
+
+    function comparableLabel(value, unit) {
+      if (!(Number(value) > 0) || !unitLabel(unit)) return "Sin formato comparable";
+      return new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 3 }).format(Number(value)) + " " + unitLabel(unit);
+    }
+
+    function dateTimeLabel(value) {
+      var date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+      return new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeStyle: "short" }).format(date);
+    }
+
+    function safeHref(value) {
+      try {
+        var url = new URL(String(value || ""), location.origin);
+        return url.protocol === "https:" ? url.href : "";
+      } catch (_error) {
+        return "";
+      }
+    }
+
+    function switchView(view) {
+      if (!["dashboard", "comparator", "plan"].includes(view)) return;
+      state.view = view;
+      els.dashboardView.hidden = view !== "dashboard";
+      els.comparatorView.hidden = view !== "comparator";
+      els.planView.hidden = view !== "plan";
+      Array.prototype.forEach.call(els.viewTabs, function(tab) {
+        tab.setAttribute("aria-selected", String(tab.dataset.view === view));
+      });
+      Array.prototype.forEach.call(els.dashboardControls, function(control) {
+        control.hidden = view !== "dashboard";
+      });
+      els.monthTitle.textContent = view === "dashboard"
+        ? monthLabel(state.month)
+        : view === "comparator"
+          ? "Precios por formato comparable"
+          : "Compra organizada por tienda";
+      if (view === "plan" && !state.planLoaded) loadShoppingPlan();
+    }
+
+    async function compareProducts(event) {
+      if (event) event.preventDefault();
+      var query = els.compareQuery.value.trim();
+      if (query.length < 2) {
+        els.compareStatus.textContent = "Escribe al menos dos caracteres.";
+        return;
+      }
+      els.compareBtn.disabled = true;
+      els.compareStatus.textContent = "Consultando precios actuales...";
+      try {
+        var data = await api("/api/compare?q=" + encodeURIComponent(query) + "&limit=6");
+        state.comparison = data;
+        renderComparison(data);
+        var count = data.stores.reduce(function(total, store) { return total + store.offers.length; }, 0);
+        els.compareStatus.textContent = count
+          ? count + " ofertas verificadas en sus fuentes."
+          : "No se han encontrado ofertas suficientemente parecidas.";
+      } catch (error) {
+        state.comparison = null;
+        els.compareStatus.textContent = error.message || "No se pudo completar la comparacion.";
+        els.compareSources.innerHTML = "";
+        els.storeResults.innerHTML = "";
+        els.comparisonSummary.hidden = true;
+      } finally {
+        els.compareBtn.disabled = false;
+      }
+    }
+
+    function renderComparison(data) {
+      els.comparisonTimestamp.textContent = "Comprobado " + dateTimeLabel(data.fetchedAt) + (data.cached ? " - resultado reciente" : "");
+      els.compareSources.innerHTML = data.stores.map(function(store) {
+        var label = store.status === "ok"
+          ? store.offers.length + (store.offers.length === 1 ? " oferta" : " ofertas")
+          : store.status === "empty" ? "sin coincidencias" : "no disponible";
+        return "<span class=\"source-status is-" + escapeHtml(store.status) + "\"><i class=\"source-dot\"></i>" +
+          escapeHtml(store.label + ": " + label) + "</span>";
+      }).join("");
+
+      var summary = data.comparison;
+      els.comparisonSummary.hidden = !summary;
+      if (summary) {
+        var cheapest = summary.cheapest;
+        els.comparisonSummary.innerHTML = "<div><span>Mejor precio comparable</span><strong>" +
+          escapeHtml(cheapest.store + " - " + cheapest.offer.name) + "</strong><small>" +
+          escapeHtml(comparableLabel(cheapest.offer.normalizedPrice, summary.unit)) + "</small></div>" +
+          "<div class=\"saving\"><span>Ahorro frente al mayor precio</span><strong>" +
+          escapeHtml(comparableLabel(summary.savingPerUnit, summary.unit)) + "</strong></div>";
+      }
+
+      var cheapestStore = summary && summary.cheapest.storeKey;
+      var cheapestId = summary && String(summary.cheapest.offer.id);
+      els.storeResults.innerHTML = data.stores.map(function(store) {
+        var offers = store.offers.slice().sort(function(a, b) {
+          if (els.compareSort.value === "pack") return a.price - b.price;
+          if (a.normalizedPrice && b.normalizedPrice && a.normalizedUnit === b.normalizedUnit) return a.normalizedPrice - b.normalizedPrice;
+          return (b.matchScore - a.matchScore) || (a.price - b.price);
+        });
+        var content;
+        if (!offers.length) {
+          content = "<div class=\"store-empty\">" + escapeHtml(store.status === "unavailable"
+            ? "La fuente no ha respondido. Las otras tiendas siguen siendo validas."
+            : "No hay una coincidencia fiable para esta busqueda.") + "</div>";
+        } else {
+          content = "<div class=\"offer-list\">" + offers.map(function(offer) {
+            var isCheapest = store.key === cheapestStore && String(offer.id) === cheapestId;
+            var imageUrl = safeHref(offer.imageUrl);
+            var productUrl = safeHref(offer.productUrl);
+            var meta = [offer.brand, offer.packageLabel].filter(Boolean).join(" - ");
+            var image = imageUrl
+              ? "<img class=\"offer-image\" src=\"" + escapeHtml(imageUrl) + "\" alt=\"\" loading=\"lazy\">"
+              : "<div class=\"offer-image offer-image-placeholder\">Sin imagen</div>";
+            var sourceLink = productUrl
+              ? "<a href=\"" + escapeHtml(productUrl) + "\" target=\"_blank\" rel=\"noreferrer\">Ver fuente</a>"
+              : "";
+            return "<article class=\"offer-card" + (isCheapest ? " is-cheapest" : "") + "\">" + image +
+              "<div class=\"offer-body\"><h4>" + escapeHtml(offer.name) + "</h4>" +
+              "<span class=\"offer-brand\">" + escapeHtml(meta || "Formato no indicado") + "</span>" +
+              "<div class=\"offer-prices\"><strong>" + escapeHtml(euro(offer.price)) + "</strong><span class=\"unit-price\">" +
+              escapeHtml(comparableLabel(offer.normalizedPrice, offer.normalizedUnit)) + "</span></div>" +
+              "<div class=\"offer-actions\">" + sourceLink + "<button class=\"secondary\" data-plan-store=\"" +
+              escapeHtml(store.key) + "\" data-plan-id=\"" + escapeHtml(offer.id) + "\">Anadir al plan</button></div></div></article>";
+          }).join("") + "</div>";
+        }
+        return "<section class=\"store-section\"><div class=\"store-head\"><h3>" + escapeHtml(store.label) +
+          "</h3><span>" + escapeHtml(store.mode) + "</span></div>" + content + "</section>";
+      }).join("");
+
+      els.upcomingStores.innerHTML = (data.upcomingStores || []).map(function(store) {
+        return "<span class=\"upcoming-source\"><strong>" + escapeHtml(store.label) + "</strong>: " + escapeHtml(store.reason) + "</span>";
+      }).join("");
+    }
+
+    function findComparedOffer(storeKey, offerId) {
+      if (!state.comparison) return null;
+      var store = state.comparison.stores.find(function(item) { return item.key === storeKey; });
+      return store && store.offers.find(function(offer) { return String(offer.id) === String(offerId); });
+    }
+
+    async function addOfferToPlan(storeKey, offerId) {
+      var offer = findComparedOffer(storeKey, offerId);
+      if (!offer) return;
+      var comparable = state.comparison.comparison;
+      var references = comparable
+        ? comparable.bestByStore.filter(function(item) { return item.offer.normalizedUnit === offer.normalizedUnit; })
+          .map(function(item) { return Number(item.offer.normalizedPrice || 0); })
+        : [];
+      var referencePrice = references.length ? Math.max.apply(null, references) : Number(offer.normalizedPrice || 0);
+      els.compareStatus.textContent = "Guardando " + offer.name + "...";
+      try {
+        await api("/api/shopping-plan", {
+          method: "POST",
+          body: JSON.stringify({
+            query: state.comparison.query,
+            checkedAt: state.comparison.fetchedAt,
+            referencePrice: referencePrice,
+            offer: offer
+          })
+        });
+        state.planLoaded = false;
+        await loadShoppingPlan();
+        els.compareStatus.textContent = offer.name + " se ha anadido al plan.";
+      } catch (error) {
+        els.compareStatus.textContent = error.message || "No se pudo guardar el producto.";
+      }
+    }
+
+    async function loadShoppingPlan() {
+      try {
+        var data = await api("/api/shopping-plan");
+        state.shoppingPlan = data.items || [];
+        state.planLoaded = true;
+        renderShoppingPlan();
+      } catch (error) {
+        els.planList.innerHTML = "<div class=\"empty-state\"><strong>No se pudo cargar el plan</strong><span>" + escapeHtml(error.message) + "</span></div>";
+      }
+    }
+
+    function estimatedItemSaving(item) {
+      if (!(item.referencePrice > item.normalizedPrice) || !item.normalizedPrice) return 0;
+      return (item.referencePrice - item.normalizedPrice) * (item.packageAmount > 0 ? item.packageAmount : 1);
+    }
+
+    function renderShoppingPlan() {
+      var items = state.shoppingPlan || [];
+      var stores = new Set(items.map(function(item) { return item.storeKey; })).size;
+      var total = items.reduce(function(sum, item) { return sum + Number(item.price || 0); }, 0);
+      var saving = items.reduce(function(sum, item) { return sum + estimatedItemSaving(item); }, 0);
+      els.planKpis.innerHTML = [
+        ["Productos", items.length + (stores ? " en " + stores + (stores === 1 ? " tienda" : " tiendas") : "")],
+        ["Total estimado", euro(total)],
+        ["Ahorro estimado", euro(saving)]
+      ].map(function(card) {
+        return "<article class=\"kpi\"><span>" + escapeHtml(card[0]) + "</span><strong>" + escapeHtml(card[1]) + "</strong></article>";
+      }).join("");
+      els.clearPlanBtn.disabled = !items.length;
+      if (!items.length) {
+        els.planList.innerHTML = "<div class=\"empty-state\"><strong>Plan vacio</strong><span>Todavia no hay productos guardados.</span></div>";
+        return;
+      }
+      els.planList.innerHTML = "<div class=\"table-scroll\"><table><thead><tr><th>Producto</th><th>Tienda</th><th>Paquete</th><th>Comparable</th><th></th></tr></thead><tbody>" +
+        items.map(function(item) {
+          var productUrl = safeHref(item.productUrl);
+          var name = productUrl
+            ? "<a class=\"plan-link\" href=\"" + escapeHtml(productUrl) + "\" target=\"_blank\" rel=\"noreferrer\">" + escapeHtml(item.name) + "</a>"
+            : "<strong>" + escapeHtml(item.name) + "</strong>";
+          return "<tr><td><div class=\"plan-product\">" + name + "<small>Comprobado " + escapeHtml(dateTimeLabel(item.checkedAt)) +
+            "</small></div></td><td class=\"plan-store\">" + escapeHtml(item.store) + "</td><td class=\"amount\">" +
+            escapeHtml(euro(item.price)) + "</td><td>" + escapeHtml(comparableLabel(item.normalizedPrice, item.normalizedUnit)) +
+            "</td><td><button class=\"mini-button\" data-remove-plan=\"" + escapeHtml(item.id) + "\" aria-label=\"Quitar del plan\" title=\"Quitar del plan\">&times;</button></td></tr>";
+        }).join("") + "</tbody></table></div>";
+    }
+
+    async function removePlanItem(id) {
+      await api("/api/shopping-plan/" + encodeURIComponent(id), { method: "DELETE" });
+      state.planLoaded = false;
+      await loadShoppingPlan();
+    }
+
+    async function clearShoppingPlan() {
+      if (!state.shoppingPlan.length) return;
+      if (!window.confirm("Vaciar todos los productos del plan de compra?")) return;
+      await api("/api/shopping-plan", { method: "DELETE" });
+      state.planLoaded = false;
+      await loadShoppingPlan();
     }
 
     async function api(path, options) {
@@ -770,6 +1234,8 @@
           body: JSON.stringify({ username: username, password: password, inviteCode: inviteCode })
         });
         state.user = result.user;
+        state.planLoaded = false;
+        switchView("dashboard");
         showApp();
         await loadDashboard();
       } catch (error) {
@@ -780,6 +1246,9 @@
     async function logout() {
       await api("/api/logout", { method: "POST", body: "{}" }).catch(function() {});
       state.user = null;
+      state.comparison = null;
+      state.shoppingPlan = [];
+      state.planLoaded = false;
       showAuth();
     }
 
@@ -888,7 +1357,7 @@
       }
       els.topProducts.innerHTML = "<table><thead><tr><th>Producto</th><th>Total</th></tr></thead><tbody>" +
         products.map(function(product) {
-          return "<tr><td><div class=\"product-cell\"><strong>" + escapeHtml(product.name) + "</strong><span class=\"product-meta\"><span class=\"category-chip\">" + escapeHtml(product.category) + "</span><span class=\"product-count\">" + escapeHtml(product.count || 1) + " compras</span></span></div></td><td class=\"amount\">" + escapeHtml(euro(product.total)) + "</td></tr>";
+          return "<tr><td><div class=\"product-cell\"><button class=\"linkish\" data-compare-product=\"" + escapeHtml(product.name) + "\">" + escapeHtml(product.name) + "</button><span class=\"product-meta\"><span class=\"category-chip\">" + escapeHtml(product.category) + "</span><span class=\"product-count\">" + escapeHtml(product.count || 1) + " compras</span></span></div></td><td class=\"amount\">" + escapeHtml(euro(product.total)) + "</td></tr>";
         }).join("") + "</tbody></table>";
     }
 
@@ -1352,12 +1821,50 @@
       var id = event.target.dataset.delete;
       if (id) deleteReceipt(id);
     });
+    Array.prototype.forEach.call(els.viewTabs, function(tab) {
+      tab.addEventListener("click", function() { switchView(tab.dataset.view); });
+    });
+    els.compareForm.addEventListener("submit", compareProducts);
+    els.quickSearches.addEventListener("click", function(event) {
+      var button = event.target.closest("[data-query]");
+      if (!button) return;
+      els.compareQuery.value = button.dataset.query;
+      switchView("comparator");
+      compareProducts();
+    });
+    els.compareSort.addEventListener("change", function() {
+      if (state.comparison) renderComparison(state.comparison);
+    });
+    els.storeResults.addEventListener("click", function(event) {
+      var button = event.target.closest("[data-plan-store][data-plan-id]");
+      if (button) addOfferToPlan(button.dataset.planStore, button.dataset.planId);
+    });
+    els.planList.addEventListener("click", function(event) {
+      var button = event.target.closest("[data-remove-plan]");
+      if (!button) return;
+      removePlanItem(button.dataset.removePlan).catch(function(error) {
+        els.planList.innerHTML = "<div class=\"error\">" + escapeHtml(error.message) + "</div>";
+      });
+    });
+    els.clearPlanBtn.addEventListener("click", function() {
+      clearShoppingPlan().catch(function(error) {
+        els.planList.innerHTML = "<div class=\"error\">" + escapeHtml(error.message) + "</div>";
+      });
+    });
+    els.topProducts.addEventListener("click", function(event) {
+      var button = event.target.closest("[data-compare-product]");
+      if (!button) return;
+      els.compareQuery.value = button.dataset.compareProduct;
+      switchView("comparator");
+      compareProducts();
+    });
 
     (async function boot() {
       els.monthInput.value = state.month;
       if ((location.hostname === "127.0.0.1" || location.hostname === "localhost") && new URLSearchParams(location.search).has("preview")) {
         state.user = { username: "vista-local" };
         showApp();
+        switchView("dashboard");
         renderDashboard({
           user: state.user,
           userCount: 0,
@@ -1373,6 +1880,7 @@
       try {
         var me = await api("/api/me");
         state.user = me.user;
+        switchView("dashboard");
         showApp();
         await loadDashboard();
       } catch (_error) {
