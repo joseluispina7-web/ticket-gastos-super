@@ -16,7 +16,7 @@ https://ticket-gastos-super.erpozi.chatgpt.site
 - Revision manual antes de guardar.
 - Categorias aprendidas por usuario.
 - Dashboard mensual con total, tickets, productos unicos, categoria top, donut de categorias, historico, total anual y top productos.
-- Comparador con precios actuales de Mercadona, Lidl y DIA.
+- Comparador con precios actuales de Mercadona, Lidl, DIA, Carrefour, Alcampo y Ahorramas.
 - Normalizacion por `EUR/kg`, `EUR/L` o `EUR/unidad`, con enlace y fecha de consulta.
 - Plan de compra privado por usuario, con tienda, precio estimado y ahorro comparable.
 - Estado vacio real: la aplicacion no muestra supermercados ni importes inventados.
@@ -29,7 +29,7 @@ https://ticket-gastos-super.erpozi.chatgpt.site
 - `server/comparison.js`: adaptadores, normalizacion, similitud y comparacion de precios.
 - `scripts/build.mjs`: genera el arbol desplegable `dist/`.
 - `scripts/test_client.mjs`: valida el parser, las categorias y la reconstruccion de lineas de PDF.
-- `scripts/test_comparison.mjs`: valida formatos, coincidencias y las tres fuentes con fixtures.
+- `scripts/test_comparison.mjs`: valida formatos, sinonimos y las seis fuentes con fixtures.
 - `.openai/hosting.json`: configuracion de Sites y D1.
 
 ## Trabajar desde cualquier ordenador
@@ -47,6 +47,17 @@ La vista local queda disponible en `http://127.0.0.1:8788/?preview=1`. Los coman
 
 Cada cambio debe hacerse en una rama `codex/<tema>` y terminar en una pull request. GitHub ejecuta automaticamente las pruebas y la compilacion mediante `.github/workflows/ci.yml`.
 
+## Publicar desde dos cuentas de ChatGPT
+
+GitHub y Sites resuelven permisos distintos:
+
+- El repositorio de GitHub permite que cualquier ChatGPT/Codex lea el proyecto. Solo el propietario y los colaboradores autorizados pueden subir cambios; esa es la proteccion frente a ediciones ajenas.
+- La URL actual de Sites pertenece al proyecto indicado en `.openai/hosting.json`. Para publicar en esa misma URL, la cuenta debe ser propietaria o editora del proyecto.
+- Si ambas cuentas pertenecen al mismo espacio de trabajo de ChatGPT, la cuenta propietaria puede anadir la segunda como editora de Sites. Despues ambas podran desplegar en la misma URL.
+- Una cuenta externa de otro espacio de trabajo no se convierte en editora solo por tener acceso a GitHub. Crear otro proyecto de Sites trasladaria el problema a otra cuenta y generaria otra URL y otra base de datos.
+
+Para una publicacion realmente independiente de una cuenta concreta de ChatGPT, la opcion recomendada es desplegar el Worker y D1 desde GitHub Actions en Cloudflare. Los cambios autorizados se integran en `main` y GitHub publica automaticamente usando secretos del repositorio; ningun codigo o contrasena de edicion se expone en la web. Esa migracion tendra una nueva URL de Cloudflare o un dominio propio y debe hacerse de forma planificada para conservar los datos.
+
 ## Comparador de precios: estado actual
 
 La fase 2 ya incluye tres vistas: resumen de tickets, comparador y plan de compra. El backend trata cada supermercado como una fuente independiente, conserva la fecha de consulta y tolera que una tienda falle sin ocultar los resultados validos de las demas.
@@ -56,8 +67,13 @@ Fuentes activas verificadas el 17 de agosto de 2026:
 - Mercadona mediante su indice publico de busqueda.
 - Lidl Espana mediante su buscador publico.
 - DIA mediante su buscador de catalogo publico.
+- Carrefour mediante el indice estructurado del proveedor de su buscador.
+- Alcampo mediante el estado de catalogo publicado en su pagina de resultados.
+- Ahorramas mediante las fichas estructuradas de su buscador online.
 
 Los precios pueden depender de zona, disponibilidad y formato. La interfaz muestra el precio del paquete y, cuando la fuente aporta cantidad suficiente, su equivalente en `EUR/kg`, `EUR/L` o `EUR/unidad`. No se inventan resultados cuando una fuente no responde.
+
+El adaptador de Alcampo esta activo, pero su proteccion de AWS puede exigir una comprobacion de navegador y rechazar una consulta hecha desde el servidor. En ese caso la tienda aparece como no disponible, sin contaminar los resultados de las otras cinco. Para estabilizarla en produccion se necesitara un navegador gestionado o un servicio de extraccion autorizado.
 
 La comparacion final tambien tendra en cuenta:
 
@@ -67,7 +83,9 @@ La comparacion final tambien tendra en cuenta:
 - Similitud real del producto, evitando comparar variedades distintas solo porque comparten una palabra.
 - Enlace a la ficha original y aviso cuando un precio no se pueda verificar.
 
-Alcampo y Carrefour figuran como proximas fuentes. Actualmente bloquean consultas HTTP simples y requieren un adaptador de navegador mantenido. El Corte Ingles, Supercor, Hipercor y otros supermercados se incorporaran despues de estabilizar codigo postal, similitud y disponibilidad regional.
+El emparejamiento reconoce conceptos equivalentes como `queso de untar`, `crema de queso` y `queso crema`, y prueba una busqueda alternativa en las fuentes que la necesitan. Tambien aplica restricciones de talla y evita tratar `pan de picos` como si fueran `picos de pan`. El Corte Ingles, Supercor, Hipercor y otros supermercados se incorporaran despues de estabilizar codigo postal, similitud y disponibilidad regional.
+
+Las ofertas personales se abordaran mediante OAuth o una integracion oficial cuando el supermercado la ofrezca. La aplicacion no debe pedir ni guardar la contrasena de Carrefour, Alcampo o Ahorramas.
 
 El trabajo de investigacion de adaptadores se apoyo en `jgalea/grocery-cli`; la atribucion y su licencia MIT estan en `THIRD_PARTY_NOTICES.md`.
 
@@ -106,7 +124,7 @@ Mantener:
 - Pantalla de revision antes de guardar.
 - Categorias aprendidas por usuario.
 - Historico por mes y ano.
-- Comparador real de Mercadona, Lidl y DIA por kilo, litro o unidad.
+- Comparador real de Mercadona, Lidl, DIA, Carrefour, Alcampo y Ahorramas por kilo, litro o unidad.
 - Plan de compra persistente por usuario.
 
 Archivos clave:
