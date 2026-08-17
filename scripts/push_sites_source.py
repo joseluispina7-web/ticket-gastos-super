@@ -16,7 +16,10 @@ SOURCE = ROOT / ".site-source"
 
 
 TRACKED = [
+    ".github/workflows/ci.yml",
     ".openai/hosting.json",
+    ".env.example",
+    "AGENTS.md",
     "dist/.openai/hosting.json",
     "dist/server/html.js",
     "dist/server/index.js",
@@ -24,6 +27,8 @@ TRACKED = [
     "server/index.js",
     "scripts/build.py",
     "scripts/build.mjs",
+    "scripts/check.mjs",
+    "scripts/dev_server.mjs",
     "scripts/dev_server.py",
     "scripts/test_client.mjs",
     "scripts/validate.py",
@@ -71,4 +76,11 @@ def push_source(remote_url: str, token: str) -> str:
 
 
 if __name__ == "__main__":
+    missing = [name for name in ("SITES_REMOTE_URL", "SITES_TOKEN") if not os.environ.get(name)]
+    if missing:
+        raise SystemExit(
+            "Missing temporary Sites credentials: "
+            + ", ".join(missing)
+            + ". Generate a source repository write credential from the Sites owner/editor account."
+        )
     print(push_source(os.environ["SITES_REMOTE_URL"], os.environ["SITES_TOKEN"]))
