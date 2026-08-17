@@ -17,8 +17,11 @@ const CATEGORIES = [
   "Platos y conservas",
   "Pescado",
   "Dulces y snacks",
+  "Frutos secos",
   "Huevos",
   "Congelados",
+  "Mascotas",
+  "Hogar",
   "Otros",
 ];
 
@@ -251,10 +254,10 @@ function summarize(items, receipts, month) {
   const categoryMap = new Map();
   const productMap = new Map();
   const storeMap = new Map();
-  let total = 0;
+  let categoryTotal = 0;
   for (const item of items) {
     const amount = Number(item.line_total || 0);
-    total += amount;
+    categoryTotal += amount;
     categoryMap.set(item.category, (categoryMap.get(item.category) || 0) + amount);
     const productKey = item.normalized_name || normalizeProductName(item.name);
     const current = productMap.get(productKey) || {
@@ -272,15 +275,17 @@ function summarize(items, receipts, month) {
   for (const receipt of receipts) {
     storeMap.set(receipt.store, (storeMap.get(receipt.store) || 0) + Number(receipt.total || 0));
   }
+  const receiptTotal = receipts.reduce((sum, receipt) => sum + Number(receipt.total || 0), 0);
   const categories = [...categoryMap.entries()]
-    .map(([category, amount]) => ({ category, amount, percent: total ? (amount / total) * 100 : 0 }))
+    .map(([category, amount]) => ({ category, amount, percent: categoryTotal ? (amount / categoryTotal) * 100 : 0 }))
     .sort((a, b) => b.amount - a.amount);
   const topProducts = [...productMap.values()].sort((a, b) => b.total - a.total).slice(0, 12);
   const stores = [...storeMap.entries()].map(([store, amount]) => ({ store, amount })).sort((a, b) => b.amount - a.amount);
   return {
     month,
     kpis: {
-      total,
+      total: receiptTotal,
+      categoryTotal,
       receipts: receipts.length,
       uniqueProducts: productMap.size,
       topCategory: categories[0] || null,
@@ -307,7 +312,7 @@ async function dashboard(request, env) {
     .bind(auth.user.id, bounds.start, bounds.next)
     .all();
   const trendResult = await env.DB.prepare(
-    "SELECT substr(receipts.receipt_date, 1, 7) AS month, SUM(receipt_items.line_total) AS total, COUNT(DISTINCT receipts.id) AS receipts FROM receipt_items INNER JOIN receipts ON receipts.id = receipt_items.receipt_id WHERE receipt_items.user_id = ? AND receipts.receipt_date >= ? AND receipts.receipt_date < ? GROUP BY substr(receipts.receipt_date, 1, 7) ORDER BY month",
+    "SELECT substr(receipt_date, 1, 7) AS month, SUM(total) AS total, COUNT(*) AS receipts FROM receipts WHERE user_id = ? AND receipt_date >= ? AND receipt_date < ? GROUP BY substr(receipt_date, 1, 7) ORDER BY month",
   )
     .bind(auth.user.id, `${bounds.year}-01-01`, `${Number(bounds.year) + 1}-01-01`)
     .all();
@@ -317,6 +322,9 @@ async function dashboard(request, env) {
     .bind(auth.user.id)
     .all();
   const userCount = await getUserCount(env);
+  const trend = trendResult.results || [];
+  const annualTotal = trend.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const annualReceipts = trend.reduce((sum, row) => sum + Number(row.receipts || 0), 0);
   return json({
     ok: true,
     user: auth.user,
@@ -325,7 +333,13 @@ async function dashboard(request, env) {
     categories: CATEGORIES,
     receipts: receiptsResult.results || [],
     items: itemsResult.results || [],
-    trend: trendResult.results || [],
+    trend,
+    annual: {
+      year: bounds.year,
+      total: annualTotal,
+      receipts: annualReceipts,
+      averageTicket: annualReceipts ? annualTotal / annualReceipts : 0,
+    },
     rules: rulesResult.results || [],
     summary: summarize(itemsResult.results || [], receiptsResult.results || [], bounds.clean),
   });
