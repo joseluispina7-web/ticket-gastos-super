@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "echo static",
-    "build:local": "py scripts/build.py",
-    "dev": "py scripts/dev_server.py"
+    "build": "node scripts/build.mjs",
+    "build:local": "node scripts/build.mjs",
+    "dev": "node scripts/dev_server.mjs",
+    "test": "node scripts/test_client.mjs",
+    "check": "node scripts/check.mjs"
   }
 }
