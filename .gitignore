@@ -2,3 +2,4 @@ site.tar.gz
 .site-source/
 .env
 node_modules/
+dist/
