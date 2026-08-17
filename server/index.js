@@ -1,4 +1,5 @@
 import { HTML } from "./html.js";
+import { comparePrices } from "./comparison.js";
 
 const MAX_USERS = 3;
 const SESSION_DAYS = 45;
@@ -132,10 +133,14 @@ async function ensureSchema(env) {
     d1.prepare(
       "CREATE TABLE IF NOT EXISTS category_rules (user_id TEXT NOT NULL, normalized_name TEXT NOT NULL, display_name TEXT NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, normalized_name))",
     ),
+    d1.prepare(
+      "CREATE TABLE IF NOT EXISTS shopping_plan_items (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, query TEXT NOT NULL, store_key TEXT NOT NULL, store_name TEXT NOT NULL, product_id TEXT NOT NULL, product_name TEXT NOT NULL, brand TEXT NOT NULL DEFAULT '', price REAL NOT NULL, normalized_price REAL NOT NULL DEFAULT 0, normalized_unit TEXT NOT NULL DEFAULT '', package_amount REAL NOT NULL DEFAULT 0, package_label TEXT NOT NULL DEFAULT '', image_url TEXT NOT NULL DEFAULT '', product_url TEXT NOT NULL DEFAULT '', reference_price REAL NOT NULL DEFAULT 0, checked_at TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (user_id, store_key, product_id))",
+    ),
     d1.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id)"),
     d1.prepare("CREATE INDEX IF NOT EXISTS idx_receipts_user_date ON receipts (user_id, receipt_date)"),
     d1.prepare("CREATE INDEX IF NOT EXISTS idx_items_user_category ON receipt_items (user_id, category)"),
     d1.prepare("CREATE INDEX IF NOT EXISTS idx_items_receipt_id ON receipt_items (receipt_id)"),
+    d1.prepare("CREATE INDEX IF NOT EXISTS idx_plan_user_store ON shopping_plan_items (user_id, store_key)"),
     d1.prepare("PRAGMA optimize"),
   ]);
 }
@@ -439,6 +444,119 @@ async function deleteReceipt(request, env, id) {
   return json({ ok: true });
 }
 
+async function compareSearch(request, env) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  const url = new URL(request.url);
+  const query = String(url.searchParams.get("q") || "").trim();
+  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") || 6), 8));
+  try {
+    return json({ ok: true, ...(await comparePrices(query, { limit })) });
+  } catch (error) {
+    return json({ error: String(error && error.message || "No se pudo comparar") }, 400);
+  }
+}
+
+function planItemFromRow(row) {
+  return {
+    id: row.id,
+    query: row.query,
+    storeKey: row.store_key,
+    store: row.store_name,
+    productId: row.product_id,
+    name: row.product_name,
+    brand: row.brand,
+    price: Number(row.price || 0),
+    normalizedPrice: Number(row.normalized_price || 0),
+    normalizedUnit: row.normalized_unit,
+    packageAmount: Number(row.package_amount || 0),
+    packageLabel: row.package_label,
+    imageUrl: row.image_url,
+    productUrl: row.product_url,
+    referencePrice: Number(row.reference_price || 0),
+    checkedAt: row.checked_at,
+    createdAt: row.created_at,
+  };
+}
+
+async function getShoppingPlan(request, env) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  const result = await env.DB.prepare(
+    "SELECT * FROM shopping_plan_items WHERE user_id = ? ORDER BY store_name, product_name",
+  )
+    .bind(auth.user.id)
+    .all();
+  return json({ ok: true, items: (result.results || []).map(planItemFromRow) });
+}
+
+function safeProductUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    const allowed = ["tienda.mercadona.es", "prod-mercadona.imgix.net", "www.lidl.es", "www.dia.es"];
+    return url.protocol === "https:" && allowed.includes(url.hostname) ? url.toString().slice(0, 700) : "";
+  } catch (_error) {
+    return "";
+  }
+}
+
+async function saveShoppingPlanItem(request, env) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  const body = await readBody(request);
+  const offer = body.offer && typeof body.offer === "object" ? body.offer : {};
+  const stores = { mercadona: "Mercadona", lidl: "Lidl", dia: "DIA" };
+  const storeKey = String(offer.storeKey || "").toLowerCase();
+  const storeName = stores[storeKey];
+  const productId = String(offer.id || "").trim().slice(0, 160);
+  const productName = String(offer.name || "").trim().slice(0, 240);
+  const price = Number(offer.price || 0);
+  if (!storeName || !productId || !productName || !(price > 0)) {
+    return json({ error: "Producto no valido" }, 400);
+  }
+  const id = crypto.randomUUID();
+  const createdAt = nowIso();
+  await env.DB.prepare(
+    "INSERT INTO shopping_plan_items (id, user_id, query, store_key, store_name, product_id, product_name, brand, price, normalized_price, normalized_unit, package_amount, package_label, image_url, product_url, reference_price, checked_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, store_key, product_id) DO UPDATE SET query = excluded.query, product_name = excluded.product_name, brand = excluded.brand, price = excluded.price, normalized_price = excluded.normalized_price, normalized_unit = excluded.normalized_unit, package_amount = excluded.package_amount, package_label = excluded.package_label, image_url = excluded.image_url, product_url = excluded.product_url, reference_price = excluded.reference_price, checked_at = excluded.checked_at",
+  )
+    .bind(
+      id,
+      auth.user.id,
+      String(body.query || "").trim().slice(0, 80),
+      storeKey,
+      storeName,
+      productId,
+      productName,
+      String(offer.brand || "").trim().slice(0, 120),
+      price,
+      Math.max(Number(offer.normalizedPrice || 0), 0),
+      ["kg", "L", "unit"].includes(offer.normalizedUnit) ? offer.normalizedUnit : "",
+      Math.max(Number(offer.packageAmount || 0), 0),
+      String(offer.packageLabel || "").trim().slice(0, 160),
+      safeProductUrl(offer.imageUrl),
+      safeProductUrl(offer.productUrl),
+      Math.max(Number(body.referencePrice || 0), 0),
+      String(body.checkedAt || createdAt).slice(0, 40),
+      createdAt,
+    )
+    .run();
+  return json({ ok: true });
+}
+
+async function deleteShoppingPlanItem(request, env, id) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  await env.DB.prepare("DELETE FROM shopping_plan_items WHERE id = ? AND user_id = ?").bind(id, auth.user.id).run();
+  return json({ ok: true });
+}
+
+async function clearShoppingPlan(request, env) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  await env.DB.prepare("DELETE FROM shopping_plan_items WHERE user_id = ?").bind(auth.user.id).run();
+  return json({ ok: true });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -459,9 +577,15 @@ export default {
       return user ? json({ ok: true, user }) : json({ error: "No autorizado" }, 401);
     }
     if (request.method === "GET" && url.pathname === "/api/dashboard") return dashboard(request, env);
+    if (request.method === "GET" && url.pathname === "/api/compare") return compareSearch(request, env);
+    if (request.method === "GET" && url.pathname === "/api/shopping-plan") return getShoppingPlan(request, env);
+    if (request.method === "POST" && url.pathname === "/api/shopping-plan") return saveShoppingPlanItem(request, env);
+    if (request.method === "DELETE" && url.pathname === "/api/shopping-plan") return clearShoppingPlan(request, env);
     if (request.method === "POST" && url.pathname === "/api/receipts") return saveReceipt(request, env);
     const deleteMatch = url.pathname.match(/^\/api\/receipts\/([^/]+)$/);
     if (request.method === "DELETE" && deleteMatch) return deleteReceipt(request, env, deleteMatch[1]);
+    const planDeleteMatch = url.pathname.match(/^\/api\/shopping-plan\/([^/]+)$/);
+    if (request.method === "DELETE" && planDeleteMatch) return deleteShoppingPlanItem(request, env, planDeleteMatch[1]);
     return json({ error: "No encontrado" }, 404);
   },
 };
