@@ -2,6 +2,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 80;
 const SEARCH_TIMEOUT_MS = 12000;
 const USER_AGENT = "Compra-Clara/0.2 (+https://github.com/joseluispina7-web/ticket-gastos-super)";
+const BROWSER_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36";
 
 const MERCADONA_APP = "7UZJKL1DJ0";
 const MERCADONA_KEY = "9d8f2e39e90df472b4f2e559a116fe17";
@@ -11,6 +12,28 @@ const STORE_META = [
   { key: "mercadona", label: "Mercadona", mode: "Online", homeUrl: "https://tienda.mercadona.es" },
   { key: "lidl", label: "Lidl", mode: "Tienda", homeUrl: "https://www.lidl.es" },
   { key: "dia", label: "DIA", mode: "Online", homeUrl: "https://www.dia.es" },
+  { key: "carrefour", label: "Carrefour", mode: "Online", homeUrl: "https://www.carrefour.es/supermercado" },
+  { key: "alcampo", label: "Alcampo", mode: "Online", homeUrl: "https://www.compraonline.alcampo.es" },
+  { key: "ahorramas", label: "Ahorramas", mode: "Online", homeUrl: "https://www.ahorramas.com" },
+];
+
+const STOP_WORDS = new Set(["a", "al", "de", "del", "el", "en", "la", "las", "los", "para", "por", "un", "una", "y"]);
+const PRODUCT_CONCEPTS = [
+  {
+    id: "concepto_queso_untar",
+    phrases: ["queso de untar", "queso untar", "crema de queso", "queso crema", "queso untable"],
+    searchAliases: ["queso untar", "crema de queso", "queso de untar"],
+  },
+  {
+    id: "concepto_picos",
+    phrases: ["picos de pan", "picos", "colines", "reganas", "palitos de pan"],
+    searchAliases: ["picos", "colines"],
+  },
+  {
+    id: "concepto_panales",
+    phrases: ["panales", "panal"],
+    searchAliases: ["panales"],
+  },
 ];
 
 const memoryCache = new Map();
@@ -23,6 +46,50 @@ function cleanText(value) {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function storeMeta(key) {
+  return STORE_META.find((store) => store.key === key);
+}
+
+function conceptTokens(value) {
+  let text = cleanText(value);
+  const concepts = new Set();
+  for (const concept of PRODUCT_CONCEPTS) {
+    for (const phrase of concept.phrases) {
+      const pattern = new RegExp(`(^|\\s)${phrase.replace(/ /g, "\\s+")}(?=\\s|$)`, "g");
+      if (pattern.test(text)) {
+        concepts.add(concept.id);
+        text = text.replace(pattern, " ");
+      }
+    }
+  }
+  const tokens = text.split(" ").filter((token) => token && !STOP_WORDS.has(token) && (token.length > 1 || /^\d+$/.test(token)));
+  concepts.forEach((concept) => tokens.push(concept));
+  return { concepts, tokens };
+}
+
+function tokenRoot(token) {
+  if (token.startsWith("concepto_")) return token;
+  if (token.length > 5 && token.endsWith("es")) return token.slice(0, -2);
+  if (token.length > 4 && token.endsWith("s")) return token.slice(0, -1);
+  return token;
+}
+
+export function queryVariants(value) {
+  const query = String(value || "").trim();
+  const normalized = cleanText(query);
+  const variants = [query];
+  for (const concept of PRODUCT_CONCEPTS) {
+    const matchedPhrase = concept.phrases.find((phrase) => (` ${normalized} `).includes(` ${phrase} `));
+    if (!matchedPhrase) continue;
+    for (const alias of concept.searchAliases) {
+      const variant = normalized.replace(matchedPhrase, cleanText(alias)).replace(/\s+/g, " ").trim();
+      if (variant !== normalized) variants.push(variant);
+    }
+    break;
+  }
+  return [...new Set(variants.filter(Boolean))].slice(0, 3);
 }
 
 function roundMoney(value, digits = 3) {
@@ -46,8 +113,20 @@ export function normalizeComparisonUnit(value) {
   return "";
 }
 
+function decodeHtml(value) {
+  const named = { amp: "&", apos: "'", euro: "EUR", gt: ">", lt: "<", nbsp: " ", quot: '"' };
+  return String(value || "").replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity) => {
+    const lower = entity.toLowerCase();
+    if (lower[0] === "#") {
+      const number = lower[1] === "x" ? parseInt(lower.slice(2), 16) : parseInt(lower.slice(1), 10);
+      return Number.isFinite(number) ? String.fromCodePoint(number) : match;
+    }
+    return Object.prototype.hasOwnProperty.call(named, lower) ? named[lower] : match;
+  });
+}
+
 function stripHtml(value) {
-  return String(value || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+  return decodeHtml(String(value || "").replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 }
 
 function metricFrom(value, unit, packs = 1) {
@@ -93,20 +172,36 @@ export function parseBasePrice(value) {
   return { value: price / basis.amount, unit: basis.unit };
 }
 
+export function parseUnitPrice(value) {
+  const text = stripHtml(value).replace(/EUR/gi, "€");
+  const match = text.match(/(\d+(?:[.,]\d+)?)\s*€?\s*\/\s*(kg|kilo|kilogramo|l|litro|unidad|unidades|ud|uds|u)\b/i);
+  if (!match) return null;
+  const unit = normalizeComparisonUnit(match[2]);
+  const price = numberFrom(match[1]);
+  return unit && price > 0 ? { value: price, unit } : null;
+}
+
 export function comparablePrice(price, metric) {
   const amount = metric && Number(metric.amount || 0);
   return amount > 0 ? Number(price || 0) / amount : 0;
 }
 
 export function productMatchScore(query, name) {
-  const wanted = cleanText(query).split(" ").filter((token) => token.length > 1 || /^\d+$/.test(token));
-  if (!wanted.length) return 0;
+  const wanted = conceptTokens(query);
+  if (!wanted.tokens.length) return 0;
   const normalizedName = cleanText(name);
-  const words = new Set(normalizedName.split(" "));
-  const matched = wanted.filter((token) => words.has(token) || normalizedName.includes(token)).length;
-  let score = matched / wanted.length;
+  const candidate = conceptTokens(name);
+  for (const concept of wanted.concepts) {
+    if (!candidate.concepts.has(concept)) return 0;
+  }
+  if (wanted.concepts.has("concepto_picos") && /\bpan de picos\b/.test(normalizedName) && !/\bpicos de pan\b/.test(normalizedName)) {
+    return 0;
+  }
+  const words = new Set(candidate.tokens.map(tokenRoot));
+  const matched = wanted.tokens.filter((token) => words.has(tokenRoot(token))).length;
+  let score = matched / wanted.tokens.length;
   const cleanQuery = cleanText(query);
-  if (cleanQuery && normalizedName.includes(cleanQuery)) score += 0.2;
+  if (cleanQuery && normalizedName.includes(cleanQuery)) score += 0.15;
   const wantedSize = cleanQuery.match(/\btalla\s*([a-z0-9]+)\b/);
   const productSize = normalizedName.match(/\btalla\s*([a-z0-9]+)\b/);
   if (wantedSize && productSize) {
@@ -147,7 +242,7 @@ function categoryName(categories) {
 }
 
 export function mapMercadonaHit(hit) {
-  const store = STORE_META[0];
+  const store = storeMeta("mercadona");
   const price = hit && hit.price_instructions ? hit.price_instructions : {};
   const unit = normalizeComparisonUnit(price.reference_format);
   const unitSize = numberFrom(price.unit_size);
@@ -170,7 +265,7 @@ export function mapMercadonaHit(hit) {
 }
 
 export function mapLidlItem(item) {
-  const store = STORE_META[1];
+  const store = storeMeta("lidl");
   const data = item && item.gridbox ? item.gridbox.data || {} : {};
   const price = data.price || {};
   const description = stripHtml(data.keyfacts && data.keyfacts.description);
@@ -195,7 +290,7 @@ export function mapLidlItem(item) {
 }
 
 export function mapDiaItem(item) {
-  const store = STORE_META[2];
+  const store = storeMeta("dia");
   const prices = item.prices || {};
   const unit = normalizeComparisonUnit(prices.measure_unit);
   return offerShape(store, {
@@ -210,6 +305,129 @@ export function mapDiaItem(item) {
     available: Number(item.units_in_stock || 0) > 0,
     imageUrl: item.image ? `https://www.dia.es${item.image}` : "",
     productUrl: item.url ? `https://www.dia.es${item.url}` : "https://www.dia.es",
+  });
+}
+
+export function mapCarrefourItem(item) {
+  const store = storeMeta("carrefour");
+  const unit = normalizeComparisonUnit(item.unit_short_name || item.measure_unit);
+  const amount = numberFrom(item.unit_conversion_factor);
+  const metric = unit && amount > 0 ? { amount, unit } : parsePackageMetric(item.display_name);
+  const productPath = item.url_for_play_service || (item.urls && item.urls.food) || "";
+  return offerShape(store, {
+    id: item.product_id || item.catalog_ref_id || item.ean13,
+    name: item.display_name,
+    brand: item.brand,
+    category: item.parent_category && item.parent_category.food,
+    price: item.active_price,
+    metric,
+    unit,
+    packageLabel: (parsePackageMetric(item.display_name) || {}).label,
+    available: item.active_food !== false,
+    imageUrl: item.image_for_play_service || (item.image_path && item.image_path.food),
+    productUrl: productPath ? `https://www.carrefour.es${productPath}` : store.homeUrl,
+  });
+}
+
+function unitFromAlcampoLabel(value) {
+  const label = cleanText(value);
+  if (/(per kg|por kg|kilogramo|gramo)/.test(label)) return "kg";
+  if (/(per l|por l|litro)/.test(label)) return "L";
+  if (/(per each|por unidad|unidad)/.test(label)) return "unit";
+  return "";
+}
+
+export function mapAlcampoItem(item, productUrl = "") {
+  const store = storeMeta("alcampo");
+  const unit = unitFromAlcampoLabel(item.price && item.price.unit && item.price.unit.label);
+  const normalizedPrice = numberFrom(item.price && item.price.unit && item.price.unit.current && item.price.unit.current.amount);
+  return offerShape(store, {
+    id: item.retailerProductId || item.productId,
+    name: item.name,
+    brand: item.brand,
+    category: Array.isArray(item.categoryPath) ? item.categoryPath.slice(0, 3).join(" - ") : "",
+    price: item.price && item.price.current && item.price.current.amount,
+    normalizedPrice,
+    unit,
+    packageLabel: item.size && item.size.value,
+    available: item.available !== false,
+    imageUrl: item.image && item.image.src,
+    productUrl: productUrl || store.homeUrl,
+  });
+}
+
+export function parseAlcampoHtml(html) {
+  const source = String(html || "");
+  const keyIndex = source.indexOf('"productEntities"');
+  if (keyIndex < 0) return [];
+  const jsonStart = source.indexOf("{", keyIndex + 17);
+  if (jsonStart < 0) return [];
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let jsonEnd = -1;
+  for (let index = jsonStart; index < source.length; index += 1) {
+    const character = source[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') inString = true;
+    else if (character === "{") depth += 1;
+    else if (character === "}" && --depth === 0) {
+      jsonEnd = index + 1;
+      break;
+    }
+  }
+  if (jsonEnd < 0) return [];
+  let entitiesById;
+  try {
+    entitiesById = JSON.parse(source.slice(jsonStart, jsonEnd));
+  } catch (_error) {
+    return [];
+  }
+  const entities = Object.values(entitiesById || {});
+  return entities.map((item) => {
+    const id = String(item.retailerProductId || "").replace(/[^a-z0-9-]/gi, "");
+    const match = id && source.match(new RegExp(`href="([^"]*/products/[^"]*/${id})"`, "i"));
+    const url = match ? new URL(decodeHtml(match[1]), "https://www.compraonline.alcampo.es").toString() : "";
+    return mapAlcampoItem(item, url);
+  });
+}
+
+export function parseAhorramasHtml(html) {
+  const source = String(html || "");
+  const starts = [...source.matchAll(/<div class="product[^"]*" data-pid="([^"]+)"/gi)];
+  return starts.flatMap((marker, index) => {
+    const block = source.slice(marker.index, starts[index + 1] ? starts[index + 1].index : source.length);
+    const encoded = (block.match(/data-gtm-layer="([^"]+)"/i) || [])[1];
+    if (!encoded) return [];
+    let data;
+    try {
+      data = JSON.parse(decodeURIComponent(decodeHtml(encoded)));
+    } catch (_error) {
+      return [];
+    }
+    const href = decodeHtml((block.match(/<a[^>]+href="([^"]+)"[^>]+class="product-pdp-link/i) || [])[1] || "");
+    const image = decodeHtml((block.match(/<img[^>]+class="tile-image"[^>]+src="([^"]+)"/i) || [])[1] || "");
+    const unitText = (block.match(/class="unit-price-per-unit[^"]*"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || "";
+    const base = parseUnitPrice(unitText);
+    const store = storeMeta("ahorramas");
+    return [offerShape(store, {
+      id: data.id || marker[1],
+      name: data.name,
+      brand: data.brand,
+      category: data.category,
+      price: data.price,
+      normalizedPrice: base && base.value,
+      unit: base && base.unit,
+      packageLabel: (parsePackageMetric(data.name) || {}).label,
+      available: !/data-available="false"/i.test(block),
+      imageUrl: image,
+      productUrl: href ? new URL(href, "https://www.ahorramas.com").toString() : store.homeUrl,
+    })];
   });
 }
 
@@ -258,11 +476,61 @@ async function searchDia(query, limit, fetcher) {
   return (data.search_items || []).slice(0, Math.max(limit * 4, 24)).map(mapDiaItem);
 }
 
+async function searchCarrefour(query, limit, fetcher) {
+  const params = new URLSearchParams({
+    query,
+    lang: "es",
+    scope: "desktop",
+    catalog: "food",
+    start: "0",
+    rows: String(Math.max(limit * 4, 24)),
+  });
+  const response = await fetchWithTimeout(fetcher, `https://api.empathy.co/search/v1/query/carrefour/search?${params}`, {
+    headers: { accept: "application/json", "user-agent": USER_AGENT },
+  });
+  const data = await response.json();
+  return (data.catalog && data.catalog.content || []).map(mapCarrefourItem);
+}
+
+async function searchAlcampo(query, _limit, fetcher) {
+  const response = await fetchWithTimeout(fetcher, `https://www.compraonline.alcampo.es/search?q=${encodeURIComponent(query)}`, {
+    headers: {
+      accept: "text/html,application/xhtml+xml",
+      "accept-language": "es-ES,es;q=0.9",
+      "user-agent": BROWSER_USER_AGENT,
+    },
+  });
+  const html = await response.text();
+  if (!html.includes('"productEntities"')) throw new Error("El catalogo de Alcampo ha pedido verificacion del navegador");
+  return parseAlcampoHtml(html);
+}
+
+async function searchAhorramas(query, _limit, fetcher) {
+  const response = await fetchWithTimeout(fetcher, `https://www.ahorramas.com/buscador?q=${encodeURIComponent(query)}`, {
+    headers: {
+      accept: "text/html,application/xhtml+xml",
+      "accept-language": "es-ES,es;q=0.9",
+      "user-agent": BROWSER_USER_AGENT,
+    },
+  });
+  return parseAhorramasHtml(await response.text());
+}
+
+async function searchExpanded(search, query, limit, fetcher) {
+  const results = await Promise.allSettled(queryVariants(query).map((variant) => search(variant, limit, fetcher)));
+  const offers = results.filter((result) => result.status === "fulfilled").flatMap((result) => result.value);
+  if (!offers.length) {
+    const rejected = results.find((result) => result.status === "rejected");
+    if (rejected) throw rejected.reason;
+  }
+  return [...new Map(offers.map((offer) => [`${offer.storeKey}:${offer.id}`, offer])).values()];
+}
+
 function rankOffers(query, offers, limit) {
   return offers
     .filter((offer) => offer.name && offer.price > 0)
     .map((offer) => ({ ...offer, matchScore: productMatchScore(query, offer.name) }))
-    .filter((offer) => offer.matchScore >= 0.34)
+    .filter((offer) => offer.matchScore >= 0.55)
     .sort((a, b) => {
       const scoreGap = b.matchScore - a.matchScore;
       if (Math.abs(scoreGap) > 0.2) return scoreGap;
@@ -318,7 +586,14 @@ export async function comparePrices(query, options = {}) {
   const cached = options.cache !== false && memoryCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return { ...cached.value, cached: true };
 
-  const searches = [searchMercadona, searchLidl, searchDia];
+  const searches = [
+    searchMercadona,
+    (query, size, source) => searchExpanded(searchLidl, query, size, source),
+    (query, size, source) => searchExpanded(searchDia, query, size, source),
+    searchCarrefour,
+    searchAlcampo,
+    (query, size, source) => searchExpanded(searchAhorramas, query, size, source),
+  ];
   const results = await Promise.allSettled(searches.map((search) => search(cleanQuery, limit, fetcher)));
   const stores = STORE_META.map((meta, index) => {
     const result = results[index];
@@ -335,10 +610,7 @@ export async function comparePrices(query, options = {}) {
     cached: false,
     stores,
     comparison: comparisonSummary(stores),
-    upcomingStores: [
-      { key: "alcampo", label: "Alcampo", reason: "La web bloquea consultas automatizadas simples" },
-      { key: "carrefour", label: "Carrefour", reason: "Requiere navegador mantenido por proteccion anti-bot" },
-    ],
+    upcomingStores: [],
   };
   if (options.cache !== false) cacheSet(cacheKey, value);
   return value;

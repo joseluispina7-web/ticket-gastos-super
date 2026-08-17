@@ -493,7 +493,16 @@ async function getShoppingPlan(request, env) {
 function safeProductUrl(value) {
   try {
     const url = new URL(String(value || ""));
-    const allowed = ["tienda.mercadona.es", "prod-mercadona.imgix.net", "www.lidl.es", "www.dia.es"];
+    const allowed = [
+      "tienda.mercadona.es",
+      "prod-mercadona.imgix.net",
+      "www.lidl.es",
+      "www.dia.es",
+      "www.carrefour.es",
+      "static.carrefour.es",
+      "www.compraonline.alcampo.es",
+      "www.ahorramas.com",
+    ];
     return url.protocol === "https:" && allowed.includes(url.hostname) ? url.toString().slice(0, 700) : "";
   } catch (_error) {
     return "";
@@ -505,7 +514,14 @@ async function saveShoppingPlanItem(request, env) {
   if (auth.response) return auth.response;
   const body = await readBody(request);
   const offer = body.offer && typeof body.offer === "object" ? body.offer : {};
-  const stores = { mercadona: "Mercadona", lidl: "Lidl", dia: "DIA" };
+  const stores = {
+    mercadona: "Mercadona",
+    lidl: "Lidl",
+    dia: "DIA",
+    carrefour: "Carrefour",
+    alcampo: "Alcampo",
+    ahorramas: "Ahorramas",
+  };
   const storeKey = String(offer.storeKey || "").toLowerCase();
   const storeName = stores[storeKey];
   const productId = String(offer.id || "").trim().slice(0, 160);
