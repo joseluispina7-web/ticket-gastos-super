@@ -4,22 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ticket Gastos Super</title>
+  <meta name="description" content="Analiza tickets de supermercado y entiende tu gasto por producto y categoria.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #10211a;
-      --muted: #66746b;
-      --forest: #183426;
-      --forest-2: #244b37;
-      --paper: #f6f1e9;
-      --card: #ebe8df;
-      --line: rgba(16, 33, 26, 0.13);
-      --green: #4b8758;
-      --orange: #bd6a36;
-      --blue: #3f7b91;
-      --gold: #bd9930;
-      --purple: #7154a5;
-      --red: #c76565;
-      --shadow: 0 18px 50px rgba(3, 16, 10, 0.18);
+      --ink: #16241d;
+      --muted: #6c746d;
+      --forest: #173b2d;
+      --forest-2: #30382a;
+      --paper: #f7f2e9;
+      --card: #eeece5;
+      --line: #d8d2c8;
+      --green: #4d855c;
+      --orange: #bc6b39;
+      --blue: #3f7990;
+      --gold: #ba9130;
+      --purple: #7055a0;
+      --red: #c46464;
+      --shadow: 0 16px 42px rgba(4, 20, 12, 0.16);
     }
 
     * { box-sizing: border-box; }
@@ -28,9 +32,8 @@
       margin: 0;
       min-height: 100vh;
       color: var(--ink);
-      background:
-        linear-gradient(135deg, #183426 0%, #1d3c2c 46%, #283322 100%);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--forest);
+      font-family: Manrope, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
     }
 
@@ -67,12 +70,12 @@
     .panel h2,
     .section-title {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      font-weight: 800;
+      font-family: "DM Serif Display", Georgia, serif;
+      font-weight: 400;
       color: var(--ink);
     }
 
-    .auth-card h1 { font-size: 34px; line-height: 1; }
+    .auth-card h1 { font-size: 38px; line-height: 1; }
     .auth-card p { margin: 8px 0 22px; color: var(--muted); }
 
     .field { display: grid; gap: 7px; margin: 12px 0; }
@@ -100,7 +103,7 @@
     .danger {
       border-radius: 8px;
       padding: 11px 15px;
-      font-weight: 850;
+      font-weight: 800;
       min-height: 42px;
     }
     .primary { background: var(--ink); color: #fffaf3; }
@@ -125,7 +128,8 @@
     }
     .brand h1 {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: "DM Serif Display", Georgia, serif;
+      font-weight: 400;
       font-size: clamp(27px, 4vw, 46px);
       line-height: 1;
     }
@@ -140,7 +144,7 @@
       border-radius: 8px;
       background: rgba(255, 250, 243, 0.11);
       border: 1px solid rgba(255, 250, 243, 0.2);
-      font-weight: 850;
+      font-weight: 800;
     }
 
     .kpis {
@@ -161,15 +165,16 @@
     .kpi span {
       color: var(--muted);
       text-transform: uppercase;
-      font-weight: 850;
+      font-weight: 800;
       font-size: 13px;
     }
     .kpi strong {
       margin-top: 8px;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: "DM Serif Display", Georgia, serif;
+      font-weight: 400;
       font-size: clamp(28px, 3.8vw, 41px);
       line-height: 1;
-      white-space: nowrap;
+      overflow-wrap: anywhere;
     }
 
     .grid {
@@ -193,7 +198,7 @@
       align-items: start;
       margin-bottom: 18px;
     }
-    .panel h2 { font-size: 31px; }
+    .panel h2 { font-size: 31px; line-height: 1.05; }
     .subtle { color: var(--muted); margin: 4px 0 0; font-weight: 600; }
     .badge {
       display: inline-flex;
@@ -222,8 +227,8 @@
     .donut .track { fill: none; stroke: #e5ded3; stroke-width: 30; }
     .donut path { fill: none; stroke-width: 30; }
     .donut-center {
-      font-family: Georgia, "Times New Roman", serif;
-      font-weight: 900;
+      font-family: "DM Serif Display", Georgia, serif;
+      font-weight: 400;
       font-size: 17px;
       fill: var(--ink);
     }
@@ -239,7 +244,7 @@
       gap: 9px;
       align-items: center;
       min-width: 0;
-      font-weight: 750;
+      font-weight: 700;
     }
     .swatch { width: 12px; height: 12px; border-radius: 3px; }
     .legend-item span:last-child {
@@ -250,6 +255,37 @@
 
     .side-stack { display: grid; gap: 20px; }
     .section-title { font-size: 23px; margin-bottom: 13px; }
+
+    .annual-summary {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 5px 14px;
+      align-items: end;
+      padding-bottom: 16px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--line);
+    }
+    .annual-summary span {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .annual-summary strong {
+      grid-column: 1;
+      font-family: "DM Serif Display", Georgia, serif;
+      font-size: 34px;
+      font-weight: 400;
+      line-height: 1;
+    }
+    .annual-summary small {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      max-width: 120px;
+      color: var(--muted);
+      text-align: right;
+      line-height: 1.45;
+    }
 
     table {
       width: 100%;
@@ -312,19 +348,43 @@
     }
     .drawer h2 {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: "DM Serif Display", Georgia, serif;
+      font-weight: 400;
       font-size: 31px;
     }
     .dropzone {
-      border: 1px dashed rgba(16, 33, 26, 0.35);
+      border: 1px solid var(--line);
       border-radius: 8px;
       background: #fffaf3;
-      padding: 16px;
+      padding: 18px;
       display: grid;
       gap: 12px;
       margin-bottom: 14px;
     }
-    .dropzone input { background: #fff; }
+    .drop-target {
+      min-height: 132px;
+      display: grid;
+      place-content: center;
+      gap: 6px;
+      padding: 22px;
+      border: 1px dashed rgba(22, 36, 29, 0.36);
+      border-radius: 8px;
+      background: #f3eee5;
+      text-align: center;
+      cursor: pointer;
+    }
+    .drop-target:hover,
+    .drop-target.is-dragging { border-color: var(--green); background: #e8eee5; }
+    .drop-target strong {
+      font-family: "DM Serif Display", Georgia, serif;
+      font-size: 24px;
+      font-weight: 400;
+    }
+    .drop-target span { color: var(--muted); font-size: 13px; }
+    .drop-target input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; }
+    .file-name { color: var(--forest); font-size: 13px; font-weight: 800; }
+    .raw-label { display: grid; gap: 7px; }
+    .raw-label > span { color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 800; }
     .status {
       min-height: 22px;
       color: var(--muted);
@@ -361,6 +421,35 @@
       padding: 14px 0;
       font-weight: 950;
       font-size: 18px;
+    }
+
+    .product-cell { display: grid; gap: 5px; }
+    .product-meta { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+    .category-chip {
+      display: inline-flex;
+      width: fit-content;
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: #e3eadf;
+      color: var(--forest);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .product-count { color: var(--muted); font-size: 11px; font-weight: 700; }
+
+    .empty-state {
+      display: grid;
+      gap: 6px;
+      place-items: start;
+      padding: 18px 0 6px;
+      color: var(--muted);
+    }
+    .empty-state strong {
+      color: var(--ink);
+      font-family: "DM Serif Display", Georgia, serif;
+      font-size: 21px;
+      font-weight: 400;
     }
 
     .overlay {
@@ -442,7 +531,6 @@
             <h2>Gasto por categoria</h2>
             <p id="chartSubtitle" class="subtle">Distribucion total del mes</p>
           </div>
-          <span id="demoBadge" class="badge" hidden>Ejemplo visual</span>
         </div>
         <div class="chart-wrap">
           <svg id="categoryChart" class="donut" viewBox="0 0 220 220" role="img" aria-label="Gasto por categoria"></svg>
@@ -453,6 +541,11 @@
       <aside class="side-stack">
         <section class="panel">
           <h2 class="section-title">Historico anual</h2>
+          <div class="annual-summary">
+            <span id="annualLabel">Total anual</span>
+            <strong id="annualTotal">0,00 EUR</strong>
+            <small id="annualMeta">Sin tickets guardados</small>
+          </div>
           <div id="trendPanel" class="trend"></div>
         </section>
         <section class="panel">
@@ -477,12 +570,18 @@
       <button id="closeDrawerBtn" class="ghost">Cerrar</button>
     </div>
     <div class="dropzone">
-      <input id="ticketFile" type="file" accept="application/pdf,image/*,.txt">
-      <textarea id="rawText" placeholder="Texto del ticket"></textarea>
+      <label id="dropTarget" class="drop-target" for="ticketFile">
+        <strong>Seleccionar ticket</strong>
+        <span>PDF, JPG, PNG o TXT</span>
+        <input id="ticketFile" type="file" accept="application/pdf,image/*,.txt">
+      </label>
+      <div id="selectedFileName" class="file-name" hidden></div>
+      <label class="raw-label">
+        <span>Texto detectado</span>
+        <textarea id="rawText" placeholder="Tambien puedes pegar aqui el texto del ticket"></textarea>
+      </label>
       <div class="actions">
-        <button id="extractBtn" class="secondary">Leer archivo</button>
-        <button id="parseBtn" class="primary">Preparar revision</button>
-        <button id="sampleBtn" class="ghost">Ejemplo</button>
+        <button id="analyzeBtn" class="primary">Analizar ticket</button>
       </div>
       <div id="importStatus" class="status"></div>
     </div>
@@ -544,61 +643,32 @@
       "Frutos secos": "#4a8b58",
       "Congelados": "#8b7d66",
       "Huevos": "#6d99c2",
+      "Mascotas": "#8d6a52",
+      "Hogar": "#687c8a",
       "Otros": "#8f9491"
     };
 
     var KEYWORDS = [
-      ["Carne", ["pollo", "pavo", "ternera", "cerdo", "lomo", "carne", "burger", "hamburg", "salchicha", "chorizo", "bacon"]],
-      ["Lacteos", ["leche", "yogur", "queso", "mantequilla", "nata", "kefir", "cuajada", "flan"]],
-      ["Fruta", ["platano", "banana", "manzana", "pera", "naranja", "melon", "sandia", "kiwi", "uva", "fresa", "limon"]],
-      ["Verdura", ["tomate", "lechuga", "cebolla", "patata", "zanahoria", "calabacin", "pimiento", "brocoli", "verdura"]],
-      ["Charcuteria", ["jamon", "pate", "chopped", "fuet", "salami", "mortadela", "charcut"]],
-      ["Higiene", ["champu", "gel", "dental", "pasta dientes", "desodorante", "toallita", "compresa", "papel higienico"]],
-      ["Panaderia", ["pan", "barra", "baguette", "molde", "croissant", "napolitana", "bolleria"]],
-      ["Bebidas", ["agua", "cerveza", "vino", "refresco", "cola", "zumo", "cafe", "bebida"]],
-      ["Bebe", ["panal", "potito", "bebe", "infantil", "toallitas"]],
-      ["Limpieza", ["detergente", "lejia", "limpiador", "lavavajillas", "suavizante", "fregasuelos", "bayeta"]],
-      ["Cereales y pasta", ["pasta", "macarron", "spaghetti", "arroz", "cereal", "avena", "harina"]],
-      ["Platos y conservas", ["conserva", "atun", "lata", "garbanzo", "lenteja", "fabada", "caldo", "sopa"]],
-      ["Pescado", ["merluza", "salmon", "bacalao", "pescado", "gamba", "langostino", "calamar"]],
-      ["Dulces y snacks", ["chocolate", "galleta", "snack", "patata frita", "helado", "dulce", "caramelo"]],
-      ["Huevos", ["huevo"]],
-      ["Congelados", ["congel", "pizza", "croqueta"]]
+      ["Bebe", ["panal", "panales", "potito", "bebe", "infantil", "toallitas", "dodot", "leche crecimiento"]],
+      ["Pescado", ["merluza", "salmon", "bacalao", "atun", "pescado", "gamba", "langostino", "calamar", "sardina", "sepia"]],
+      ["Carne", ["pollo", "pavo", "ternera", "cerdo", "lomo", "carne", "burger", "hamburguesa", "salchicha", "chorizo", "bacon", "conejo"]],
+      ["Lacteos", ["leche", "yogur", "queso", "mantequilla", "nata", "kefir", "cuajada", "flan", "requeson"]],
+      ["Fruta", ["platano", "banana", "manzana", "pera", "naranja", "melon", "sandia", "kiwi", "uva", "fresa", "limon", "mandarina", "aguacate"]],
+      ["Verdura", ["tomate", "lechuga", "cebolla", "patata", "zanahoria", "calabacin", "pimiento", "brocoli", "verdura", "pepino", "berenjena", "ensalada"]],
+      ["Charcuteria", ["jamon", "pate", "chopped", "fuet", "salami", "mortadela", "charcuteria", "embutido"]],
+      ["Higiene", ["champu", "gel", "dental", "pasta dientes", "desodorante", "compresa", "papel higienico", "afeitado", "colonia"]],
+      ["Panaderia", ["pan", "barra", "baguette", "pan molde", "croissant", "napolitana", "bolleria", "tortilla trigo"]],
+      ["Bebidas", ["agua", "cerveza", "vino", "refresco", "cola", "zumo", "cafe", "bebida", "tonica", "sidra"]],
+      ["Limpieza", ["detergente", "lejia", "limpiador", "lavavajillas", "suavizante", "fregasuelos", "bayeta", "estropajo", "bolsa basura"]],
+      ["Cereales y pasta", ["pasta", "macarron", "spaghetti", "espagueti", "arroz", "cereal", "avena", "harina", "cuscus"]],
+      ["Platos y conservas", ["conserva", "lata", "garbanzo", "lenteja", "fabada", "caldo", "sopa", "gazpacho", "crema"]],
+      ["Dulces y snacks", ["chocolate", "galleta", "snack", "patata frita", "helado", "dulce", "caramelo", "bizcocho", "turron"]],
+      ["Frutos secos", ["almendra", "nuez", "nueces", "pistacho", "cacahuete", "anacardo", "avellana"]],
+      ["Huevos", ["huevo", "huevos"]],
+      ["Congelados", ["congelado", "congelada", "pizza", "croqueta", "hielo"]],
+      ["Mascotas", ["perro", "gato", "mascota", "pienso", "arena gatos"]],
+      ["Hogar", ["papel cocina", "servilleta", "aluminio", "film", "pila", "bombilla", "menaje"]]
     ];
-
-    var DEMO = {
-      kpis: {
-        total: 745.60,
-        receipts: 9,
-        uniqueProducts: 146,
-        topCategory: { category: "Carne", amount: 130.40, percent: 17.5 }
-      },
-      categories: [
-        ["Carne", 130.40], ["Lacteos", 108.84], ["Fruta", 97.45], ["Verdura", 70.21],
-        ["Charcuteria", 50.75], ["Higiene", 46.50], ["Panaderia", 41.14], ["Bebidas", 37.36],
-        ["Bebe", 37.15], ["Limpieza", 35.40], ["Cereales y pasta", 32.95], ["Platos y conservas", 21.65],
-        ["Pescado", 10.70], ["Dulces y snacks", 9.35], ["Frutos secos", 7.90], ["Congelados", 4.50],
-        ["Huevos", 3.35]
-      ].map(function(item) {
-        return { category: item[0], amount: item[1], percent: (item[1] / 745.60) * 100 };
-      }),
-      topProducts: [
-        { name: "Pechuga de pollo", category: "Carne", total: 42.80, count: 4 },
-        { name: "Leche semidesnatada", category: "Lacteos", total: 31.20, count: 12 },
-        { name: "Platano", category: "Fruta", total: 22.45, count: 5 },
-        { name: "Pan integral", category: "Panaderia", total: 18.15, count: 6 }
-      ],
-      trend: [
-        { month: "2026-01", total: 612.40 }, { month: "2026-02", total: 680.10 },
-        { month: "2026-03", total: 711.90 }, { month: "2026-04", total: 698.20 },
-        { month: "2026-05", total: 745.60 }
-      ],
-      receipts: [
-        { store: "Mercadona", receipt_date: "2026-08-09", total: 82.35 },
-        { store: "Lidl", receipt_date: "2026-08-06", total: 48.10 },
-        { store: "Carrefour", receipt_date: "2026-08-02", total: 116.72 }
-      ]
-    };
 
     var els = {
       authView: document.getElementById("authView"),
@@ -619,18 +689,20 @@
       chart: document.getElementById("categoryChart"),
       legend: document.getElementById("categoryLegend"),
       chartSubtitle: document.getElementById("chartSubtitle"),
-      demoBadge: document.getElementById("demoBadge"),
+      annualLabel: document.getElementById("annualLabel"),
+      annualTotal: document.getElementById("annualTotal"),
+      annualMeta: document.getElementById("annualMeta"),
       trendPanel: document.getElementById("trendPanel"),
       topProducts: document.getElementById("topProducts"),
       receiptList: document.getElementById("receiptList"),
       drawer: document.getElementById("importDrawer"),
       overlay: document.getElementById("drawerOverlay"),
       closeDrawerBtn: document.getElementById("closeDrawerBtn"),
+      dropTarget: document.getElementById("dropTarget"),
       ticketFile: document.getElementById("ticketFile"),
+      selectedFileName: document.getElementById("selectedFileName"),
       rawText: document.getElementById("rawText"),
-      extractBtn: document.getElementById("extractBtn"),
-      parseBtn: document.getElementById("parseBtn"),
-      sampleBtn: document.getElementById("sampleBtn"),
+      analyzeBtn: document.getElementById("analyzeBtn"),
       importStatus: document.getElementById("importStatus"),
       reviewPanel: document.getElementById("reviewPanel"),
       reviewStore: document.getElementById("reviewStore"),
@@ -719,36 +791,30 @@
       renderDashboard(data);
     }
 
-    function activeSummary(data) {
-      var hasRealData = data.items && data.items.length > 0;
-      if (hasRealData) return { demo: false, summary: data.summary, receipts: data.receipts, trend: data.trend, topProducts: data.summary.topProducts };
-      return {
-        demo: true,
-        summary: {
-          kpis: DEMO.kpis,
-          categories: DEMO.categories,
-          topProducts: DEMO.topProducts
-        },
-        receipts: DEMO.receipts,
-        trend: DEMO.trend,
-        topProducts: DEMO.topProducts
-      };
-    }
-
     function renderDashboard(data) {
-      var view = activeSummary(data);
-      var summary = view.summary;
+      var summary = data.summary;
       els.userPill.textContent = data.user.username;
       els.userLimit.textContent = data.userCount + "/" + data.maxUsers + " usuarios";
       els.monthTitle.textContent = monthLabel(state.month);
-      els.demoBadge.hidden = !view.demo;
-      els.chartSubtitle.textContent = view.demo ? "Distribucion de ejemplo" : "Distribucion total del mes";
+      els.chartSubtitle.textContent = "Distribucion total del mes";
+      renderAnnual(data.annual, data.trend);
       renderKpis(summary.kpis);
-      renderDonut(summary.categories, summary.kpis.total);
-      renderLegend(summary.categories, summary.kpis.total);
-      renderTrend(view.trend);
-      renderTopProducts(view.topProducts);
-      renderReceipts(view.receipts, view.demo);
+      renderDonut(summary.categories, summary.kpis.categoryTotal);
+      renderLegend(summary.categories, summary.kpis.categoryTotal);
+      renderTrend(data.trend);
+      renderTopProducts(summary.topProducts);
+      renderReceipts(data.receipts);
+    }
+
+    function renderAnnual(annual, trend) {
+      var fallbackTotal = (trend || []).reduce(function(sum, row) { return sum + Number(row.total || 0); }, 0);
+      var fallbackReceipts = (trend || []).reduce(function(sum, row) { return sum + Number(row.receipts || 0); }, 0);
+      var year = (annual && annual.year) || state.month.slice(0, 4);
+      var total = annual ? Number(annual.total || 0) : fallbackTotal;
+      var receipts = annual ? Number(annual.receipts || 0) : fallbackReceipts;
+      els.annualLabel.textContent = "Total " + year;
+      els.annualTotal.textContent = euro(total);
+      els.annualMeta.textContent = receipts ? receipts + " tickets - media " + euro(total / receipts) : "Sin tickets guardados";
     }
 
     function renderKpis(kpis) {
@@ -817,24 +883,24 @@
 
     function renderTopProducts(products) {
       if (!products || !products.length) {
-        els.topProducts.innerHTML = "<p class=\"muted\">Sin productos todavia.</p>";
+        els.topProducts.innerHTML = "<div class=\"empty-state\"><strong>Sin productos</strong><span>Los productos apareceran al guardar el primer ticket.</span></div>";
         return;
       }
       els.topProducts.innerHTML = "<table><thead><tr><th>Producto</th><th>Total</th></tr></thead><tbody>" +
         products.map(function(product) {
-          return "<tr><td><strong>" + escapeHtml(product.name) + "</strong><br><span class=\"muted\">" + escapeHtml(product.category) + " · " + escapeHtml(product.count || 1) + " veces</span></td><td class=\"amount\">" + escapeHtml(euro(product.total)) + "</td></tr>";
+          return "<tr><td><div class=\"product-cell\"><strong>" + escapeHtml(product.name) + "</strong><span class=\"product-meta\"><span class=\"category-chip\">" + escapeHtml(product.category) + "</span><span class=\"product-count\">" + escapeHtml(product.count || 1) + " compras</span></span></div></td><td class=\"amount\">" + escapeHtml(euro(product.total)) + "</td></tr>";
         }).join("") + "</tbody></table>";
     }
 
-    function renderReceipts(receipts, demo) {
+    function renderReceipts(receipts) {
       if (!receipts || !receipts.length) {
-        els.receiptList.innerHTML = "<p class=\"muted\">Sin tickets en este mes.</p>";
+        els.receiptList.innerHTML = "<div class=\"empty-state\"><strong>Sin tickets</strong><span>Importa el primero para empezar el historico.</span></div>";
         return;
       }
       els.receiptList.innerHTML = "<table><thead><tr><th>Tienda</th><th>Total</th><th></th></tr></thead><tbody>" +
         receipts.map(function(receipt) {
           return "<tr><td><strong>" + escapeHtml(receipt.store) + "</strong><br><span class=\"muted\">" + escapeHtml(receipt.receipt_date) + "</span></td><td class=\"amount\">" + escapeHtml(euro(receipt.total)) + "</td><td>" +
-            (demo ? "" : "<button class=\"mini-button\" data-delete=\"" + escapeHtml(receipt.id) + "\">x</button>") + "</td></tr>";
+            "<button class=\"mini-button\" data-delete=\"" + escapeHtml(receipt.id) + "\" aria-label=\"Eliminar ticket\" title=\"Eliminar ticket\">&times;</button></td></tr>";
         }).join("") + "</tbody></table>";
     }
 
@@ -852,27 +918,91 @@
       els.importStatus.textContent = text || "";
     }
 
-    async function extractFile() {
+    async function analyzeTicket(readSelectedFile) {
       var file = els.ticketFile.files[0];
-      if (!file) {
-        setStatus("Elige un archivo.");
-        return;
-      }
-      setStatus("Leyendo " + file.name + "...");
+      var originalLabel = els.analyzeBtn.textContent;
+      els.analyzeBtn.disabled = true;
+      els.analyzeBtn.textContent = "Analizando...";
+      els.reviewPanel.hidden = true;
       try {
-        var text = "";
-        if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
-          text = await extractPdf(file);
-        } else if (file.type.indexOf("image/") === 0) {
-          text = await extractImage(file);
-        } else {
-          text = await file.text();
+        var text = els.rawText.value.trim();
+        if (file && (readSelectedFile || !text)) {
+          setStatus("Leyendo " + file.name + "...");
+          if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+            text = await extractPdf(file);
+          } else if (file.type.indexOf("image/") === 0) {
+            text = await extractImage(file);
+          } else {
+            text = await file.text();
+          }
+          els.rawText.value = text.trim();
         }
-        els.rawText.value = text.trim();
-        setStatus(text.trim() ? "Texto detectado." : "No se ha detectado texto.");
+        if (!text.trim()) throw new Error("No se ha detectado texto en el ticket.");
+        var parsed = parseReceiptText(text);
+        if (!parsed.items.length) {
+          throw new Error("He leido el archivo, pero no he podido separar los productos. Puedes corregir el texto detectado y volver a analizarlo.");
+        }
+        prepareReview(parsed);
       } catch (error) {
-        setStatus("No he podido leerlo automaticamente. Puedes pegar el texto.");
+        setStatus(error.message || "No he podido leer el ticket.");
+      } finally {
+        els.analyzeBtn.disabled = false;
+        els.analyzeBtn.textContent = originalLabel;
       }
+    }
+
+    function groupPdfLines(items) {
+      var tokens = (items || []).filter(function(item) { return String(item.str || "").trim(); }).map(function(item) {
+        return {
+          text: String(item.str || "").trim(),
+          x: Number(item.transform && item.transform[4] || 0),
+          y: Number(item.transform && item.transform[5] || 0),
+          width: Number(item.width || 0)
+        };
+      }).sort(function(a, b) {
+        if (Math.abs(a.y - b.y) > 2.4) return b.y - a.y;
+        return a.x - b.x;
+      });
+      var rows = [];
+      tokens.forEach(function(token) {
+        var row = rows.find(function(candidate) { return Math.abs(candidate.y - token.y) <= 2.4; });
+        if (!row) {
+          row = { y: token.y, tokens: [] };
+          rows.push(row);
+        }
+        row.tokens.push(token);
+      });
+      return rows.sort(function(a, b) { return b.y - a.y; }).map(function(row) {
+        return row.tokens.sort(function(a, b) { return a.x - b.x; }).map(function(token) { return token.text; }).join(" ").replace(/\s+/g, " ").trim();
+      }).filter(Boolean);
+    }
+
+    async function createOcrWorker() {
+      var mod = await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js");
+      var createWorker = mod.createWorker || (mod.default && mod.default.createWorker);
+      if (!createWorker) throw new Error("No se ha podido iniciar el OCR.");
+      return createWorker("spa");
+    }
+
+    async function ocrPdfPages(pdf) {
+      var worker = await createOcrWorker();
+      var pages = [];
+      try {
+        for (var pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          setStatus("Aplicando OCR a la pagina " + pageNumber + " de " + pdf.numPages + "...");
+          var page = await pdf.getPage(pageNumber);
+          var viewport = page.getViewport({ scale: 2.15 });
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          await page.render({ canvasContext: canvas.getContext("2d"), viewport: viewport }).promise;
+          var result = await worker.recognize(canvas);
+          pages.push(result.data.text || "");
+        }
+      } finally {
+        await worker.terminate();
+      }
+      return pages.join("\n");
     }
 
     async function extractPdf(file) {
@@ -880,22 +1010,28 @@
       pdfjs.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
       var buffer = await file.arrayBuffer();
       var pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
-      var chunks = [];
+      var pages = [];
       for (var pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        setStatus("Leyendo la pagina " + pageNumber + " de " + pdf.numPages + "...");
         var page = await pdf.getPage(pageNumber);
         var content = await page.getTextContent();
-        chunks.push(content.items.map(function(item) { return item.str; }).join("\n"));
+        pages.push(groupPdfLines(content.items).join("\n"));
       }
-      return chunks.join("\n");
+      var text = pages.join("\n").trim();
+      var pricedLines = text.split(/\r?\n/).filter(function(line) { return /\d{1,5}[.,]\d{2}/.test(line); });
+      if (text.replace(/\s/g, "").length < 60 || pricedLines.length < 2) return ocrPdfPages(pdf);
+      return text;
     }
 
     async function extractImage(file) {
-      setStatus("OCR local en curso...");
-      var mod = await import("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js");
-      var worker = await mod.createWorker("spa");
-      var result = await worker.recognize(file);
-      await worker.terminate();
-      return result.data.text || "";
+      setStatus("Aplicando OCR a la imagen...");
+      var worker = await createOcrWorker();
+      try {
+        var result = await worker.recognize(file);
+        return result.data.text || "";
+      } finally {
+        await worker.terminate();
+      }
     }
 
     function normalizeProduct(name) {
@@ -916,7 +1052,12 @@
       if (upper.indexOf("LIDL") !== -1) return "Lidl";
       if (upper.indexOf("ALCAMPO") !== -1) return "Alcampo";
       if (upper.indexOf("CONSUM") !== -1) return "Consum";
-      if (upper.indexOf("DIA") !== -1) return "Dia";
+      if (/\bDIA\b|DIA%|DIA PLAZA/.test(upper)) return "Dia";
+      if (upper.indexOf("SUPERCOR") !== -1) return "Supercor";
+      if (upper.indexOf("HIPERCOR") !== -1) return "Hipercor";
+      if (upper.indexOf("EL CORTE INGLES") !== -1) return "El Corte Ingles";
+      if (upper.indexOf("EROSKI") !== -1) return "Eroski";
+      if (upper.indexOf("ALDI") !== -1) return "Aldi";
       return "Supermercado";
     }
 
@@ -956,76 +1097,101 @@
         var category = KEYWORDS[k][0];
         var words = KEYWORDS[k][1];
         for (var w = 0; w < words.length; w += 1) {
-          if (normalized.indexOf(words[w]) !== -1) return category;
+          if ((" " + normalized + " ").indexOf(" " + words[w] + " ") !== -1) return category;
         }
       }
       return "Otros";
     }
 
     function isNoise(line) {
-      return /iva|subtotal|total|tarjeta|visa|mastercard|cambio|entregado|factura|cajero|telefono|cif|nif|parking|club|puntos|ahorro|descuento/i.test(line);
+      return /\biva\b|subtotal|total|importe|a pagar|tarjeta|visa|mastercard|cambio|entregado|factura|cajero|telefono|cif|nif|parking|club|puntos|ahorro|descuento|cupon|redondeo|base imponible|forma de pago|bienvenido|gracias por su compra/i.test(line);
+    }
+
+    function cleanProductLabel(value) {
+      return String(value || "")
+        .replace(/^\s*\d{5,14}\s+/, "")
+        .replace(/^\s*\d+(?:[.,]\d+)?\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\d+(?:[.,]\d{2})\s*/i, "")
+        .replace(/\s+\d+(?:[.,]\d+)?\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\d+(?:[.,]\d{2})\s*$/i, "")
+        .replace(/\s+(?:eur\/?kg|e\/kg|euros?\/kg)\s*$/i, "")
+        .replace(/^[\s.:;*_-]+|[\s.:;*_-]+$/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function parseLineItem(line, pendingName) {
+      var matches = Array.from(line.matchAll(/-?\d{1,5}(?:[.,]\d{2})/g));
+      if (!matches.length) return null;
+      var totalMatch = matches[matches.length - 1];
+      var lineTotal = parseMoney(totalMatch[0]);
+      if (!Number.isFinite(lineTotal) || lineTotal <= 0) return null;
+      var prefix = line.slice(0, totalMatch.index).trim();
+      var quantity = 1;
+      var unitPrice = lineTotal;
+      var quantityMatch = prefix.match(/(\d+(?:[.,]\d+)?)\s*(?:ud|uds|u|kg)?\s*[xX*]\s*(\d+(?:[.,]\d{2}))/i);
+      var weightMatch = prefix.match(/(\d+[.,]\d+)\s*kg\b.*?(\d+(?:[.,]\d{2}))\s*(?:eur\/?kg|e\/kg|euros?\/kg)/i);
+      if (weightMatch) {
+        quantity = Math.max(parseMoney(weightMatch[1]), 0.001);
+        unitPrice = parseMoney(weightMatch[2]);
+      } else if (quantityMatch) {
+        quantity = Math.max(parseMoney(quantityMatch[1]), 0.001);
+        unitPrice = parseMoney(quantityMatch[2]);
+      }
+      var labelPrefix = prefix;
+      if (weightMatch) {
+        labelPrefix = labelPrefix
+          .replace(/^\s*\d+[.,]\d+\s*kg\s*/i, "")
+          .replace(/\s+\d+(?:[.,]\d{2})\s*(?:eur\/?kg|e\/kg|euros?\/kg)\s*$/i, "");
+      }
+      var name = cleanProductLabel(labelPrefix);
+      if (!/[a-zA-Z\u00c0-\u017f]{2}/.test(name)) name = cleanProductLabel(pendingName);
+      if (name.length < 3 || isNoise(name) || /^\d+$/.test(name)) return null;
+      return {
+        name: name.slice(0, 120),
+        category: guessCategory(name),
+        quantity: quantity,
+        unitPrice: unitPrice,
+        lineTotal: lineTotal
+      };
     }
 
     function parseReceiptText(text) {
       var lines = String(text || "").split(/\r?\n/).map(function(line) {
-        return line.replace(/\s+/g, " ").trim();
+        return line.replace(/[|]+/g, " ").replace(/\s+/g, " ").trim();
       }).filter(Boolean);
       var items = [];
+      var pendingName = "";
       lines.forEach(function(line) {
-        if (line.length < 4 || isNoise(line)) return;
-        var match = line.match(/(-?\d{1,5}(?:[.,]\d{2}))\s*(?:EUR|E)?\s*$/i);
-        if (!match) return;
-        var amount = parseMoney(match[1]);
-        if (!Number.isFinite(amount) || amount <= 0) return;
-        var name = line.slice(0, line.lastIndexOf(match[1])).trim();
-        name = name.replace(/^\d{2,}\s+/, "").replace(/\b\d+\s*x\s*\d+[,.]\d+\b/ig, "").replace(/\s+/g, " ").trim();
-        if (name.length < 3 || /^\d+$/.test(name)) return;
-        items.push({
-          name: name.slice(0, 80),
-          category: guessCategory(name),
-          quantity: 1,
-          unitPrice: amount,
-          lineTotal: amount
-        });
+        if (line.length < 3) return;
+        var item = !isNoise(line) ? parseLineItem(line, pendingName) : null;
+        if (item) {
+          items.push(item);
+          pendingName = "";
+          return;
+        }
+        if (!isNoise(line) && !/\d{1,5}[.,]\d{2}/.test(line) && /[a-zA-Z\u00c0-\u017f]{3}/.test(line) && line.length <= 120) {
+          pendingName = line;
+        }
       });
       return {
         store: detectStore(text),
         date: detectDate(text),
         sourceName: (els.ticketFile.files[0] && els.ticketFile.files[0].name) || "",
         rawText: text,
-        items: items.slice(0, 180),
+        items: items.slice(0, 220),
         total: detectTotal(lines, items)
       };
     }
 
-    function loadSample() {
-      els.rawText.value = [
-        "MERCADONA",
-        "08/08/2026",
-        "PECHUGA POLLO 7,80",
-        "YOGUR GRIEGO 2,45",
-        "PLATANO CANARIAS 3,12",
-        "TOMATE ENSALADA 2,90",
-        "PAN INTEGRAL 1,35",
-        "DETERGENTE LIQUIDO 6,40",
-        "AGUA MINERAL 2,10",
-        "TOTAL 26,12"
-      ].join("\n");
-      setStatus("Ejemplo cargado.");
-    }
-
-    function prepareReview() {
-      var parsed = parseReceiptText(els.rawText.value);
-      if (!parsed.items.length) {
-        parsed.items = [{ name: "", category: "Otros", quantity: 1, unitPrice: 0, lineTotal: 0 }];
-      }
+    function prepareReview(parsed) {
+      parsed = parsed || parseReceiptText(els.rawText.value);
+      if (!parsed.items.length) return;
       state.review = parsed;
       els.reviewStore.value = parsed.store;
       els.reviewDate.value = parsed.date;
       els.reviewTotal.value = parsed.total.toFixed(2);
       els.reviewPanel.hidden = false;
       renderReviewRows();
-      setStatus(parsed.items.length + " lineas preparadas.");
+      setStatus(parsed.items.length + " productos detectados. Revisa los datos antes de guardar.");
     }
 
     function categoryOptions(selected) {
@@ -1099,6 +1265,8 @@
         state.review = null;
         els.rawText.value = "";
         els.ticketFile.value = "";
+        els.selectedFileName.textContent = "";
+        els.selectedFileName.hidden = true;
         els.reviewPanel.hidden = true;
         await loadDashboard();
       } catch (error) {
@@ -1109,6 +1277,15 @@
     async function deleteReceipt(id) {
       await api("/api/receipts/" + encodeURIComponent(id), { method: "DELETE" });
       await loadDashboard();
+    }
+
+    async function handleFileSelection() {
+      var file = els.ticketFile.files[0];
+      els.selectedFileName.hidden = !file;
+      els.selectedFileName.textContent = file ? file.name : "";
+      if (!file) return;
+      els.rawText.value = "";
+      await analyzeTicket(true);
     }
 
     els.loginBtn.addEventListener("click", function() { auth("login"); });
@@ -1122,11 +1299,39 @@
     els.openImportBtn.addEventListener("click", openDrawer);
     els.closeDrawerBtn.addEventListener("click", closeDrawer);
     els.overlay.addEventListener("click", closeDrawer);
-    els.extractBtn.addEventListener("click", extractFile);
-    els.parseBtn.addEventListener("click", prepareReview);
-    els.sampleBtn.addEventListener("click", loadSample);
+    els.ticketFile.addEventListener("change", handleFileSelection);
+    els.analyzeBtn.addEventListener("click", function() { analyzeTicket(false); });
+    ["dragenter", "dragover"].forEach(function(type) {
+      els.dropTarget.addEventListener(type, function(event) {
+        event.preventDefault();
+        els.dropTarget.classList.add("is-dragging");
+      });
+    });
+    ["dragleave", "drop"].forEach(function(type) {
+      els.dropTarget.addEventListener(type, function(event) {
+        event.preventDefault();
+        els.dropTarget.classList.remove("is-dragging");
+      });
+    });
+    els.dropTarget.addEventListener("drop", function(event) {
+      if (!event.dataTransfer || !event.dataTransfer.files.length) return;
+      els.ticketFile.files = event.dataTransfer.files;
+      handleFileSelection();
+    });
     els.addRowBtn.addEventListener("click", function() {
-      if (!state.review) prepareReview();
+      if (!state.review) {
+        state.review = {
+          store: "Supermercado",
+          date: new Date().toISOString().slice(0, 10),
+          sourceName: "",
+          rawText: els.rawText.value,
+          total: 0,
+          items: []
+        };
+        els.reviewStore.value = state.review.store;
+        els.reviewDate.value = state.review.date;
+        els.reviewPanel.hidden = false;
+      }
       state.review.items.push({ name: "", category: "Otros", quantity: 1, unitPrice: 0, lineTotal: 0 });
       renderReviewRows();
     });
@@ -1150,6 +1355,21 @@
 
     (async function boot() {
       els.monthInput.value = state.month;
+      if ((location.hostname === "127.0.0.1" || location.hostname === "localhost") && new URLSearchParams(location.search).has("preview")) {
+        state.user = { username: "vista-local" };
+        showApp();
+        renderDashboard({
+          user: state.user,
+          userCount: 0,
+          maxUsers: 3,
+          receipts: [],
+          items: [],
+          trend: [],
+          annual: { year: state.month.slice(0, 4), total: 0, receipts: 0, averageTicket: 0 },
+          summary: { kpis: { total: 0, categoryTotal: 0, receipts: 0, uniqueProducts: 0, topCategory: null }, categories: [], topProducts: [] }
+        });
+        return;
+      }
       try {
         var me = await api("/api/me");
         state.user = me.user;
