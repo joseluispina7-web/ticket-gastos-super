@@ -1,4 +1,5 @@
 await import("./test_client.mjs");
+await import("./test_comparison.mjs");
 await import("./build.mjs");
 
 const worker = await import(`../dist/server/index.js?check=${Date.now()}`);
