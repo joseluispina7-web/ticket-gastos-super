@@ -1496,11 +1496,56 @@
       setStatus("Aplicando OCR a la imagen...");
       var worker = await createOcrWorker();
       try {
-        var result = await worker.recognize(file);
+        var image = await prepareOcrImage(file);
+        var result = await worker.recognize(image);
         return result.data.text || "";
       } finally {
         await worker.terminate();
       }
+    }
+
+    async function prepareOcrImage(file) {
+      if (!/^image\//i.test(file.type || "")) return file;
+      var bitmap = null;
+      try {
+        if (window.createImageBitmap) {
+          bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+        }
+      } catch (_error) {
+        bitmap = null;
+      }
+      if (!bitmap) {
+        bitmap = await new Promise(function(resolve, reject) {
+          var img = new Image();
+          img.onload = function() { resolve(img); };
+          img.onerror = function() { reject(new Error("No he podido abrir la imagen. Si es HEIC de iPhone, mandala como JPG o PDF.")); };
+          img.src = URL.createObjectURL(file);
+        });
+      }
+      var sourceWidth = bitmap.width || bitmap.naturalWidth;
+      var sourceHeight = bitmap.height || bitmap.naturalHeight;
+      if (!sourceWidth || !sourceHeight) return file;
+      var longestSide = Math.max(sourceWidth, sourceHeight);
+      var scale = longestSide < 1400 ? 1400 / longestSide : Math.min(1, 2400 / longestSide);
+      var canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+      var ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      var data = imageData.data;
+      for (var index = 0; index < data.length; index += 4) {
+        var gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+        gray = Math.max(0, Math.min(255, (gray - 128) * 1.35 + 138));
+        data[index] = gray;
+        data[index + 1] = gray;
+        data[index + 2] = gray;
+        data[index + 3] = 255;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      return canvas;
     }
 
     function normalizeProduct(name) {
@@ -1546,14 +1591,32 @@
     }
 
     function detectTotal(lines, items) {
-      for (var index = lines.length - 1; index >= 0; index -= 1) {
+      var found = findTotal(lines);
+      return found ? found.total : items.reduce(function(sum, item) { return sum + item.lineTotal; }, 0);
+    }
+
+    function findTotal(lines) {
+      var best = null;
+      for (var index = 0; index < lines.length; index += 1) {
         var line = lines[index];
-        if (/total|importe|a pagar/i.test(line)) {
-          var match = line.match(/(-?\d{1,5}(?:[.,]\d{2}))\s*$/);
-          if (match) return parseMoney(match[1]);
+        if (!isTotalLine(line)) continue;
+        var match = line.match(/(-?\d{1,5}(?:[.,]\d{2}))\s*(?:eur|euro|€)?\s*$/i);
+        if (match) {
+          best = { total: parseMoney(match[1]), index: index };
+          if (/total\s+a\s+pagar|a\s+pagar/i.test(line)) return best;
+          continue;
+        }
+        for (var offset = 1; offset <= 3 && index + offset < lines.length; offset += 1) {
+          var nextLine = lines[index + offset];
+          var nextMatch = nextLine.match(/^\s*(-?\d{1,5}(?:[.,]\d{2}))\s*(?:eur|euro|€)?\s*$/i);
+          if (nextMatch) {
+            best = { total: parseMoney(nextMatch[1]), index: index };
+            if (/total\s+a\s+pagar|a\s+pagar/i.test(line)) return best;
+            break;
+          }
         }
       }
-      return items.reduce(function(sum, item) { return sum + item.lineTotal; }, 0);
+      return best;
     }
 
     function guessCategory(name) {
@@ -1572,15 +1635,20 @@
       return "Otros";
     }
 
+    function isTotalLine(line) {
+      return /total\s+a\s+pagar|a\s+pagar|^total\b|^venta\b|importe/i.test(line) &&
+        !/ventaja|ahorro|descuento|cupon|club|saldo|acumulado|base|cuota|iva|cambio|recibido/i.test(line);
+    }
+
     function isNoise(line) {
-      return /\biva\b|subtotal|total|importe|a pagar|tarjeta|visa|mastercard|cambio|entregado|factura|cajero|telefono|cif|nif|parking|club|puntos|ahorro|descuento|cupon|redondeo|base imponible|forma de pago|bienvenido|gracias por su compra/i.test(line);
+      return /\biva\b|subtotal|total|importe|a pagar|tarjeta|visa|mastercard|cambio|entregado|factura|cajero|telefono|tel[eé]fono|telf\.?|directo tienda|cif|nif|parking|club|puntos|ahorro|descuento|cupon|redondeo|base imponible|forma de pago|bienvenido|gracias por su compra|ventaja|saldo|acumulado|contactless|firma|socio|atenci[oó]n al cliente|todos los importes/i.test(line);
     }
 
     function cleanProductLabel(value) {
       return String(value || "")
         .replace(/^\s*\d{5,14}\s+/, "")
-        .replace(/^\s*\d+(?:[.,]\d+)?\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\d+(?:[.,]\d{2})\s*/i, "")
-        .replace(/\s+\d+(?:[.,]\d+)?\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\d+(?:[.,]\d{2})\s*$/i, "")
+        .replace(/^\s*\d+(?:[.,]\d+)?\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\(?\s*\d+(?:[.,]\d{2})\s*\)?\s*/i, "")
+        .replace(/\s+\d+(?:[.,]\d+)?\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\(?\s*\d+(?:[.,]\d{2})\s*\)?\s*$/i, "")
         .replace(/\s+(?:eur\/?kg|e\/kg|euros?\/kg)\s*$/i, "")
         .replace(/^[\s.:;*_-]+|[\s.:;*_-]+$/g, "")
         .replace(/\s+/g, " ")
@@ -1596,7 +1664,7 @@
       var prefix = line.slice(0, totalMatch.index).trim();
       var quantity = 1;
       var unitPrice = lineTotal;
-      var quantityMatch = prefix.match(/(\d+(?:[.,]\d+)?)\s*(?:ud|uds|u|kg)?\s*[xX*]\s*(\d+(?:[.,]\d{2}))/i);
+      var quantityMatch = prefix.match(/(\d+(?:[.,]\d+)?)\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\(?\s*(\d+(?:[.,]\d{2}))\s*\)?/i);
       var weightMatch = prefix.match(/(\d+[.,]\d+)\s*kg\b.*?(\d+(?:[.,]\d{2}))\s*(?:eur\/?kg|e\/kg|euros?\/kg)/i);
       if (weightMatch) {
         quantity = Math.max(parseMoney(weightMatch[1]), 0.001);
@@ -1613,7 +1681,7 @@
       }
       var name = cleanProductLabel(labelPrefix);
       if (!/[a-zA-Z\u00c0-\u017f]{2}/.test(name)) name = cleanProductLabel(pendingName);
-      if (name.length < 3 || isNoise(name) || /^\d+$/.test(name)) return null;
+      if (name.length < 3 || isNoise(name) || /^\d+$/.test(name) || /\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/.test(name)) return null;
       return {
         name: name.slice(0, 120),
         category: guessCategory(name),
@@ -1627,18 +1695,35 @@
       var lines = String(text || "").split(/\r?\n/).map(function(line) {
         return line.replace(/[|]+/g, " ").replace(/\s+/g, " ").trim();
       }).filter(Boolean);
+      var totalInfo = findTotal(lines);
+      var itemLines = totalInfo ? lines.slice(0, totalInfo.index) : lines;
       var items = [];
       var pendingName = "";
-      lines.forEach(function(line) {
-        if (line.length < 3) return;
-        var item = !isNoise(line) ? parseLineItem(line, pendingName) : null;
+      var pendingPricing = "";
+      itemLines.forEach(function(line) {
+        if (line.length < 2) return;
+        if (isNoise(line)) {
+          pendingName = "";
+          pendingPricing = "";
+          return;
+        }
+        if (/^\d+(?:[.,]\d+)?\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\(?\s*\d+(?:[.,]\d{2})\s*\)?\s*$/i.test(line) && pendingName) {
+          pendingPricing = line;
+          return;
+        }
+        var parseLine = pendingPricing && /^\d{1,5}(?:[.,]\d{2})\s*$/.test(line)
+          ? pendingName + " " + pendingPricing + " " + line
+          : line;
+        var item = parseLineItem(parseLine, pendingName);
         if (item) {
           items.push(item);
           pendingName = "";
+          pendingPricing = "";
           return;
         }
-        if (!isNoise(line) && !/\d{1,5}[.,]\d{2}/.test(line) && /[a-zA-Z\u00c0-\u017f]{3}/.test(line) && line.length <= 120) {
-          pendingName = line;
+        if (!/\d{1,5}[.,]\d{2}/.test(line) && /[a-zA-Z\u00c0-\u017f]{2}/.test(line) && line.length <= 80) {
+          pendingName = cleanProductLabel((pendingName ? pendingName + " " : "") + line).slice(0, 120);
+          pendingPricing = "";
         }
       });
       return {
@@ -1647,7 +1732,7 @@
         sourceName: (els.ticketFile.files[0] && els.ticketFile.files[0].name) || "",
         rawText: text,
         items: items.slice(0, 220),
-        total: detectTotal(lines, items)
+        total: totalInfo ? totalInfo.total : detectTotal(lines, items)
       };
     }
 
