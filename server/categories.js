@@ -68,7 +68,7 @@ const CATALOG_CATEGORY_RULES = [
   { category: "Bebé", terms: ["bebe", "infantil", "pañal*", "panal*"] },
   { category: "Limpieza", terms: ["limpieza", "drogueria"] },
   { category: "Cereales y pasta", terms: ["cereal*", "pasta*", "arroz", "harina*"] },
-  { category: "Platos y conservas", terms: ["conserva*", "platos preparado*", "alimentacion preparada", "aceite*", "vinagre*"] },
+  { category: "Platos y conservas", terms: ["conserva*", "platos preparado*", "alimentacion preparada", "comida preparada*", "listo para comer", "caldo*", "crema*", "sopa*", "pizza*", "aceite*", "vinagre*"] },
   { category: "Salsas", terms: ["salsa*", "mayonesa", "ketchup", "mostaza"] },
   { category: "Dulces y snacks", terms: ["dulce*", "chocolate*", "galleta*", "snack*", "caramelo*", "helado*"] },
   { category: "Frutos secos", terms: ["fruto* seco*"] },

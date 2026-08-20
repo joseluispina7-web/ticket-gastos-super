@@ -635,7 +635,8 @@
     .offer-prices { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
     .offer-prices strong { font-family: "DM Serif Display", Georgia, serif; font-size: 23px; font-weight: 400; }
     .offer-original { color: #8b7568; font-size: 12px; font-weight: 800; text-decoration: line-through; }
-    .unit-price { color: var(--forest); font-size: 12px; font-weight: 900; }
+    .offer-pack-price { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .offer-pack-price b { color: var(--ink); font-size: 12px; }
     .offer-promotion { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
     .offer-promotion b {
       padding: 4px 6px;
@@ -1334,7 +1335,10 @@
       els.compareSources.innerHTML = data.stores.map(function(store) {
         var label = store.status === "ok"
           ? store.offers.length + (store.offers.length === 1 ? " oferta" : " ofertas")
-          : store.status === "empty" ? "sin coincidencias" : "no disponible";
+          : store.status === "empty" && (store.filteredCount || store.withoutFormatCount || store.unavailableCount)
+            ? (Number(store.filteredCount || 0) + Number(store.withoutFormatCount || 0) + Number(store.unavailableCount || 0)) +
+              ((Number(store.filteredCount || 0) + Number(store.withoutFormatCount || 0) + Number(store.unavailableCount || 0)) === 1 ? " resultado descartado" : " resultados descartados")
+            : store.status === "empty" ? "sin coincidencias" : "no disponible";
         return "<span class=\"source-status is-" + escapeHtml(store.status) + "\"><i class=\"source-dot\"></i>" +
           escapeHtml(store.label + ": " + label) + "</span>";
       }).join("");
@@ -1362,7 +1366,7 @@
         if (!offers.length) {
           content = "<div class=\"store-empty\">" + escapeHtml(store.status === "unavailable"
             ? "La fuente no ha respondido. Las otras tiendas siguen siendo válidas."
-            : "No hay una coincidencia fiable para esta búsqueda.") + "</div>";
+            : store.emptyReason || "No hay una coincidencia fiable para esta búsqueda.") + "</div>";
         } else {
           content = "<div class=\"offer-list\">" + offers.map(function(offer) {
             var isCheapest = store.key === cheapestStore && String(offer.id) === cheapestId;
@@ -1375,8 +1379,14 @@
             var sourceLink = productUrl
               ? "<a href=\"" + escapeHtml(productUrl) + "\" target=\"_blank\" rel=\"noreferrer\">Ver fuente</a>"
               : "";
+            var hasComparable = offer.normalizedPrice > 0 && Boolean(unitLabel(offer.normalizedUnit));
+            var primaryPrice = hasComparable ? comparableLabel(offer.normalizedPrice, offer.normalizedUnit) : euro(offer.price);
             var originalPrice = offer.originalPrice > offer.price
-              ? "<span class=\"offer-original\">" + escapeHtml(euro(offer.originalPrice)) + "</span>"
+              ? " <span class=\"offer-original\">" + escapeHtml(euro(offer.originalPrice)) + "</span>"
+              : "";
+            var packPrice = hasComparable && !offer.priceIsUnitPrice
+              ? "<div class=\"offer-pack-price\">" + escapeHtml(offer.priceIsEstimated ? "Formato estimado: " : "Formato: ") +
+                "<b>" + escapeHtml(euro(offer.price)) + "</b>" + originalPrice + "</div>"
               : "";
             var promotion = offer.isPromotion
               ? "<div class=\"offer-promotion\"><b>" + escapeHtml(offer.discountPercent ? "-" + offer.discountPercent + "%" : "Oferta") +
@@ -1385,8 +1395,8 @@
             return "<article class=\"offer-card" + (isCheapest ? " is-cheapest" : "") + "\">" + image +
               "<div class=\"offer-body\"><h4>" + escapeHtml(offer.name) + "</h4>" +
               "<span class=\"offer-brand\">" + escapeHtml(meta || "Formato no indicado") + "</span>" +
-              "<div class=\"offer-prices\"><strong>" + escapeHtml(euro(offer.price)) + "</strong>" + originalPrice +
-              "<span class=\"unit-price\">" + escapeHtml(comparableLabel(offer.normalizedPrice, offer.normalizedUnit)) + "</span></div>" + promotion +
+              "<div class=\"offer-prices\"><strong>" + escapeHtml(primaryPrice) + "</strong>" + (hasComparable && !offer.priceIsUnitPrice ? "" : originalPrice) +
+              "</div>" + packPrice + promotion +
               "<div class=\"offer-actions\">" + sourceLink + "<button class=\"basket-button\" data-plan-store=\"" +
               escapeHtml(store.key) + "\" data-plan-id=\"" + escapeHtml(offer.id) + "\" aria-label=\"Añadir " +
               escapeHtml(offer.name) + " a la cesta\" title=\"Añadir a la cesta\"><span aria-hidden=\"true\">&#128722;</span></button></div></div></article>";

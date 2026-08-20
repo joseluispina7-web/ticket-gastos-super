@@ -188,9 +188,33 @@ function metricFrom(value, unit, packs = 1) {
   return null;
 }
 
+function metricLabel(metric, approximate = false) {
+  if (!metric || !(Number(metric.amount) > 0)) return "";
+  const amount = Number(metric.amount);
+  let label = "";
+  if (metric.unit === "kg") {
+    label = amount < 1 ? `${Math.round(amount * 1000)} g` : `${roundMoney(amount)} kg`;
+  } else if (metric.unit === "L") {
+    label = amount < 1 ? `${Math.round(amount * 1000)} ml` : `${roundMoney(amount)} L`;
+  } else if (metric.unit === "unit") {
+    label = `${roundMoney(amount)} ${amount === 1 ? "unidad" : "unidades"}`;
+  }
+  return label ? `${label}${approximate ? " aprox." : ""}` : "";
+}
+
 export function parsePackageMetric(value) {
   const text = stripHtml(value).replace(/\u00d7/g, "x");
   let match = text.match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kilogramos?|kilos?|kg|gramos?|gr|g|litros?|l|mililitros?|ml|centilitros?|cl|unidades?|uds|ud|u)/i);
+  if (match) {
+    const metric = metricFrom(match[2], match[3], numberFrom(match[1]));
+    if (metric) return { ...metric, label: match[0] };
+  }
+  match = text.match(/(\d+)\s*(?:\+|m[aá]s)\s*(\d+)\s*(unidades?|uds|ud|u)\b/i);
+  if (match) {
+    const metric = metricFrom(numberFrom(match[1]) + numberFrom(match[2]), match[3]);
+    if (metric) return { ...metric, label: match[0] };
+  }
+  match = text.match(/(?:pack\s*(?:de)?\s*)?(\d+)\s*(?:unidades?|uds|ud)\s*(?:de|x)\s*(\d+(?:[.,]\d+)?)\s*(kilogramos?|kilos?|kg|gramos?|gr|g|litros?|l|mililitros?|ml|centilitros?|cl)/i);
   if (match) {
     const metric = metricFrom(match[2], match[3], numberFrom(match[1]));
     if (metric) return { ...metric, label: match[0] };
@@ -271,7 +295,7 @@ const PRODUCT_FORMATS = [
   { pattern: /\b(?:tira|tiras)\b/, label: "tiras" },
   { pattern: /\b(?:burger|hamburguesa|hamburguesas)\b/, label: "hamburguesa" },
 ];
-const RESTRICTIVE_CATEGORIES = new Set(["Charcutería", "Congelados"]);
+const NAME_CATEGORY_OVERRIDES = new Set(["Charcutería", "Salsas", "Higiene", "Bebé", "Mascotas"]);
 
 function detectedFormat(value) {
   const normalized = cleanText(value);
@@ -281,35 +305,43 @@ function detectedFormat(value) {
 function candidateCategory(offer) {
   const catalog = classifyCatalogProduct(offer.category, "");
   const byName = classifyProductName(offer.name);
-  if (RESTRICTIVE_CATEGORIES.has(catalog.category)) return catalog.category;
-  return byName.category !== "Otros" ? byName.category : catalog.category;
+  if (catalog.category === "Otros") return byName.category;
+  if (byName.category !== catalog.category && NAME_CATEGORY_OVERRIDES.has(byName.category)) return byName.category;
+  return catalog.category;
 }
 
 function hasCompatibleIntent(query, offer) {
   const wanted = cleanText(removePackageNoise(query));
-  const candidate = cleanText(`${offer.name || ""} ${offer.category || ""}`);
-  const preparedPattern = /\b(?:villaroy|fiambre\w*|embutid\w*|lonch\w*|brasead\w*|empanad\w*|rebozad\w*|elaborad\w*|precocinad\w*|conserva\w*|pate\w*|cocid\w*|asado|asada|horno)\b|\b9\d\s*%/;
+  const candidateName = cleanText(offer.name);
+  const candidateContext = cleanText(`${offer.name || ""} ${offer.category || ""}`);
+  const preparedPattern = /\b(?:villaroy|fiambre\w*|embutid\w*|lonch\w*|brasead\w*|ahumad\w*|empanad\w*|rebozad\w*|elaborad\w*|precocinad\w*|conserva\w*|pate\w*|cocid\w*|asado|asada|horno|marinad\w*|adobad\w*|barbacoa|curry|extratiern\w*|poke|sashimi|pizza\w*|hamburguesa\w*|nugget\w*|croqueta\w*|caldo\w*|sopa\w*|tarrito\w*|potito\w*|pienso\w*|mascota\w*|perro\w*|gato\w*|noodle\w*|fideo\w*|sabor)\b|\bfinas hierbas\b|\b9\d\s*%/;
 
   for (const group of EXCLUSIVE_PRODUCT_GROUPS) {
     const wantedTerms = group.filter((term) => (` ${wanted} `).includes(` ${term} `));
     if (!wantedTerms.length) continue;
-    if (!wantedTerms.some((term) => (` ${candidate} `).includes(` ${term} `))) return false;
-    if (group.some((term) => !wantedTerms.includes(term) && (` ${candidate} `).includes(` ${term} `))) return false;
+    if (!wantedTerms.some((term) => (` ${candidateName} `).includes(` ${term} `))) return false;
+    if (group.some((term) => !wantedTerms.includes(term) && (` ${candidateName} `).includes(` ${term} `))) return false;
   }
 
   const wantedFormat = detectedFormat(wanted);
-  const offeredFormat = detectedFormat(candidate);
+  const offeredFormat = detectedFormat(candidateName);
   if (wantedFormat && offeredFormat && wantedFormat !== offeredFormat) return false;
   if (wantedFormat && !offeredFormat) return false;
 
-  if (!/\blote\b/.test(wanted) && /\blote\b/.test(candidate)) return false;
-  if (!/\btrocead\w*\b/.test(wanted) && /\btrocead\w*\b/.test(candidate)) return false;
-  if (/\bpechuga\b/.test(wanted) && /\bsin pechuga\b/.test(candidate)) return false;
-  if (!/\bcongelad\w*\b/.test(wanted) && /\bcongelad\w*\b/.test(candidate)) return false;
+  if (!/\blote\b/.test(wanted) && /\blote\b/.test(candidateName)) return false;
+  if (!/\btrocead\w*\b/.test(wanted) && /\btrocead\w*\b/.test(candidateName)) return false;
+  if (/\bpechuga\b/.test(wanted) && /\bsin pechuga\b/.test(candidateName)) return false;
+  if (!/\bcocid\w*\b/.test(wanted) && /\bcocid\w*\b/.test(candidateName)) return false;
+  if (!/\bsin lactosa\b/.test(wanted) && /\bsin lactosa\b/.test(candidateName)) return false;
+  if (!/\bfresc\w*\b/.test(wanted) && /\bleche fresca\b/.test(candidateName)) return false;
+  if (!/\bcongelad\w*\b/.test(wanted) && /\bcongelad\w*\b/.test(candidateContext)) return false;
 
   const wantedCategory = classifyProductName(query).category;
-  if (["Carne", "Pescado"].includes(wantedCategory) && !preparedPattern.test(wanted) && preparedPattern.test(candidate)) return false;
+  if (wantedCategory === "Cereales y pasta" && !/\b(?:tarrina|vasito|microondas)\b/.test(wanted) && /\b(?:tarrina|vasito|microondas)\b/.test(candidateName)) return false;
+  const wantsPrepared = preparedPattern.test(wanted);
+  if (["Carne", "Pescado"].includes(wantedCategory) && !wantsPrepared && preparedPattern.test(candidateContext)) return false;
   const offeredCategory = candidateCategory(offer);
+  if (["Carne", "Pescado"].includes(wantedCategory) && wantsPrepared && ["Platos y conservas", "Congelados", "Charcutería"].includes(offeredCategory)) return true;
   return wantedCategory === "Otros" || offeredCategory === "Otros" || wantedCategory === offeredCategory;
 }
 
@@ -328,6 +360,7 @@ function offerShape(store, data) {
   const metric = data.metric || parsePackageMetric(`${data.name || ""} ${data.packageLabel || ""}`);
   const unit = normalizeComparisonUnit(data.unit || (metric && metric.unit));
   const normalizedPrice = roundMoney(data.normalizedPrice || comparablePrice(price, metric));
+  const priceIsEstimated = data.priceIsEstimated === true;
   return {
     storeKey: store.key,
     store: store.label,
@@ -344,7 +377,9 @@ function offerShape(store, data) {
     normalizedPrice,
     normalizedUnit: unit,
     packageAmount: metric && metric.amount ? roundMoney(metric.amount) : 0,
-    packageLabel: String(data.packageLabel || (metric && metric.label) || "").trim(),
+    packageLabel: String(data.packageLabel || (metric && (metric.label || metricLabel(metric, priceIsEstimated))) || "").trim(),
+    priceIsEstimated,
+    priceIsUnitPrice: data.priceIsUnitPrice === true,
     available: data.available !== false && price > 0,
     imageUrl: String(data.imageUrl || ""),
     productUrl: String(data.productUrl || store.homeUrl),
@@ -368,9 +403,10 @@ export function mapMercadonaHit(hit) {
   const sizeMetric = unit === "unit" && totalUnits > 1
     ? { amount: totalUnits, unit: "unit" }
     : unitSize > 0 ? metricFrom(unitSize, price.size_format || price.reference_format) : null;
+  const priceIsEstimated = price.approx_size === true || /aprox/i.test(String(price.approx_size || ""));
   const packageLabel = unit === "unit" && totalUnits > 1
     ? [hit.packaging, `${totalUnits} unidades`].filter(Boolean).join(" | ")
-    : sizeMetric ? `${unitSize} ${price.size_format || price.reference_format}` : String(hit.packaging || "");
+    : sizeMetric ? metricLabel(sizeMetric, priceIsEstimated) : String(hit.packaging || "");
   return offerShape(store, {
     id: hit.id || hit.objectID,
     name: hit.display_name,
@@ -384,6 +420,7 @@ export function mapMercadonaHit(hit) {
     unit,
     metric: sizeMetric,
     packageLabel,
+    priceIsEstimated,
     available: hit.published !== false && !hit.unavailable_from,
     imageUrl: hit.thumbnail,
     productUrl: hit.share_url,
@@ -407,6 +444,7 @@ export function mapDiaItem(item) {
     normalizedPrice: prices.price_per_unit,
     unit,
     packageLabel: (parsePackageMetric(item.display_name) || {}).label,
+    priceIsEstimated: /\baprox/i.test(String(item.display_name || "")),
     available: Number(item.units_in_stock || 0) > 0,
     imageUrl: item.image ? `https://www.dia.es${item.image}` : "",
     productUrl: item.url ? `https://www.dia.es${item.url}` : "https://www.dia.es",
@@ -416,8 +454,11 @@ export function mapDiaItem(item) {
 export function mapAldiHit(hit) {
   const store = storeMeta("aldi");
   const primaryAsset = Array.isArray(hit.assets) ? hit.assets.find((asset) => asset.type === "primary") || hit.assets[0] : null;
-  const category = hit.hierarchicalCategories && Array.isArray(hit.hierarchicalCategories.lvl1)
-    ? String(hit.hierarchicalCategories.lvl1[0] || "").split(">").pop().trim()
+  const categoryPaths = hit.hierarchicalCategories && Array.isArray(hit.hierarchicalCategories.lvl1)
+    ? hit.hierarchicalCategories.lvl1.filter(Boolean)
+    : [];
+  const category = categoryPaths.length
+    ? String(categoryPaths[0]).split(">").pop().trim()
     : hit.mainCategoryID;
   const currentPrice = hit.currentPrice || {};
   const basePrice = Array.isArray(currentPrice.basePrice) ? currentPrice.basePrice[0] : null;
@@ -430,6 +471,7 @@ export function mapAldiHit(hit) {
     normalizedPrice: basePrice && basePrice.basePriceValue,
     unit: basePrice && basePrice.basePriceScale,
     packageLabel: hit.salesUnit,
+    priceIsEstimated: /\baprox/i.test(String(hit.salesUnit || "")),
     available: hit.isAvailable !== false && hit.isRecall !== true,
     imageUrl: primaryAsset && primaryAsset.url,
     productUrl: hit.productSlug ? `https://www.aldi.es/producto/${hit.productSlug}.html` : store.homeUrl,
@@ -455,7 +497,8 @@ export function mapCarrefourItem(item) {
     price: item.active_price,
     metric,
     unit,
-    packageLabel: averageMetric ? `${averageWeight} g aprox.` : (namedMetric || {}).label,
+    packageLabel: averageMetric ? metricLabel(averageMetric, true) : (namedMetric || {}).label,
+    priceIsEstimated: item.variable_weight === true,
     available: item.active_food !== false,
     imageUrl: item.image_for_play_service || (item.image_path && item.image_path.food),
     productUrl: productPath ? `https://www.carrefour.es${productPath}` : store.homeUrl,
@@ -475,6 +518,7 @@ export function mapHipercorProduct(product) {
     category: product.category,
     price: offer.price || offer.lowPrice,
     packageLabel: (parsePackageMetric(product.name) || {}).label,
+    priceIsEstimated: /\baprox/i.test(String(product.name || "")),
     available: offer.availability ? !/OutOfStock/i.test(String(offer.availability)) : true,
     imageUrl: image,
     productUrl,
@@ -502,6 +546,7 @@ export function mapAlcampoItem(item, productUrl = "") {
     normalizedPrice,
     unit,
     packageLabel: item.size && item.size.value,
+    priceIsEstimated: /\baprox/i.test(String(item.size && item.size.value || "")),
     available: item.available !== false,
     imageUrl: item.image && item.image.src,
     productUrl: productUrl || store.homeUrl,
@@ -574,6 +619,7 @@ export function parseAhorramasHtml(html) {
     const variableWeight = /data-hasunitweight="true"/i.test(cartTag);
     const namedMetric = parsePackageMetric(data.name);
     const metric = variableWeight && mediumWeight > 0 ? metricFrom(mediumWeight, "kg") : namedMetric;
+    const priceIsEstimated = variableWeight || /\baprox/i.test(String(data.name || ""));
     const currentPrice = variableWeight && metric
       ? cartPrice || roundMoney((salesPrice || (base && base.value)) * metric.amount, 2)
       : cartPrice || salesPrice || numberFrom(data.price);
@@ -594,7 +640,8 @@ export function parseAhorramasHtml(html) {
       normalizedPrice: base && base.value,
       unit: base && base.unit,
       metric,
-      packageLabel: (namedMetric || {}).label,
+      packageLabel: priceIsEstimated ? metricLabel(metric, true) : (namedMetric || {}).label,
+      priceIsEstimated,
       available: !/data-available="false"/i.test(block),
       imageUrl: image,
       productUrl: href ? new URL(href, "https://www.ahorramas.com").toString() : store.homeUrl,
@@ -677,10 +724,13 @@ export function parseHipercorHtml(html) {
     const image = decodeHtml((block.match(/\bfood-product-preview-responsive__image\b[\s\S]*?<img[^>]+src=["']([^"']+)["']/i) || [])[1] || "");
     const unitText = (block.match(/class=["'][^"']*\bfood-prices__measurement-unit\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) || [])[1] || "";
     const packageText = (block.match(/<span[^>]+class=["'][^"']*\bfood-product-preview-responsive__sale_type\b[^"']*["'][^>]*>([\s\S]*?)<\/span>\s*(?:<!--[\s\S]*?-->\s*)*<\/div>/i) || [])[1] || "";
-    const base = parseUnitPrice(unitText);
+    const base = parseUnitPrice(`${priceText} ${unitText}`);
     const packageLabel = stripHtml(packageText);
     const packageMetric = parsePackageMetric(packageLabel);
-    const normalizedPrice = base && packageMetric && base.unit === packageMetric.unit && packageMetric.amount > 1 && base.value >= price * 0.9
+    const priceIsUnitPrice = /€\s*\/\s*(?:kg|kilo|l|litro)/i.test(stripHtml(priceText));
+    const normalizedPrice = priceIsUnitPrice
+      ? base && base.value
+      : base && packageMetric && base.unit === packageMetric.unit && packageMetric.amount > 1 && base.value >= price * 0.9
       ? comparablePrice(price, packageMetric)
       : base && base.value;
     products.push(offerShape(storeMeta("hipercor"), {
@@ -690,6 +740,8 @@ export function parseHipercorHtml(html) {
       normalizedPrice,
       unit: base && base.unit,
       packageLabel,
+      priceIsEstimated: /\baprox|peso aproximado/i.test(`${stripHtml(description[2])} ${packageLabel}`),
+      priceIsUnitPrice,
       available: !/Agotado temporalmente/i.test(block),
       imageUrl: image,
       productUrl: href ? new URL(href, "https://www.hipercor.es").toString() : storeMeta("hipercor").homeUrl,
@@ -715,16 +767,26 @@ export function parseHipercorMarkdown(markdown) {
     const base = parseUnitPrice(block);
     const packageMetric = parsePackageMetric(packageLabel);
     const price = numberFrom(priceMatch[1]);
-    const normalizedPrice = base && packageMetric && base.unit === packageMetric.unit && packageMetric.amount > 1 && base.value >= price * 0.9
+    const pricePrefix = block.slice(0, description.index);
+    const directUnitPrices = [...pricePrefix.matchAll(/(\d+(?:[.,]\d+)?)\s*€\s*\/\s*(?:kg|kilo|l|litro)/gi)].map((match) => numberFrom(match[1]));
+    const priceIsUnitPrice = directUnitPrices.length > 0 && Math.abs(directUnitPrices[0] - price) < 0.001;
+    const normalizedPrice = priceIsUnitPrice
+      ? base && base.value
+      : base && packageMetric && base.unit === packageMetric.unit && packageMetric.amount > 1 && base.value >= price * 0.9
       ? comparablePrice(price, packageMetric)
       : base && base.value;
     return [offerShape(storeMeta("hipercor"), {
       id: marker[3],
       name: description[1].replace(/\s+/g, " ").trim(),
       price,
+      originalPrice: priceIsUnitPrice && directUnitPrices[1] > price ? directUnitPrices[1] : 0,
+      isPromotion: priceIsUnitPrice && directUnitPrices[1] > price,
+      promotionText: priceIsUnitPrice && directUnitPrices[1] > price ? "Oferta Hipercor" : "",
       normalizedPrice,
       unit: base && base.unit,
       packageLabel,
+      priceIsEstimated: /\baprox|peso aproximado/i.test(`${description[1]} ${packageLabel}`),
+      priceIsUnitPrice,
       available: !/Agotado temporalmente/i.test(block),
       imageUrl: marker[1],
       productUrl: description[2].replace(/^http:/i, "https:"),
@@ -742,7 +804,7 @@ async function searchAldi(query, limit, fetcher) {
       "x-algolia-application-id": ALDI_APP,
       "user-agent": USER_AGENT,
     },
-    body: JSON.stringify({ query, hitsPerPage: Math.max(limit * 4, 24) }),
+    body: JSON.stringify({ query, hitsPerPage: Math.max(limit * 15, 120) }),
   });
   const data = await response.json();
   return (data.hits || []).map(mapAldiHit);
@@ -875,9 +937,9 @@ async function searchExpanded(search, query, limit, fetcher) {
 
 function rankOffers(query, offers, limit) {
   return offers
-    .filter((offer) => offer.name && offer.price > 0)
+    .filter((offer) => offer.name && offer.price > 0 && offer.available !== false)
     .map((offer) => ({ ...offer, matchScore: offerMatchScore(query, offer) }))
-    .filter((offer) => offer.matchScore >= 0.72)
+    .filter((offer) => offer.matchScore >= 0.72 && offer.normalizedPrice > 0 && offer.normalizedUnit)
     .sort((a, b) => {
       const scoreGap = b.matchScore - a.matchScore;
       if (Math.abs(scoreGap) > 0.2) return scoreGap;
@@ -887,6 +949,43 @@ function rankOffers(query, offers, limit) {
       return scoreGap || a.price - b.price;
     })
     .slice(0, limit);
+}
+
+function filteredOfferSummary(query, offers) {
+  const allUnique = [...new Map((offers || [])
+    .filter((offer) => offer.name && offer.price > 0)
+    .map((offer) => [`${offer.storeKey}:${offer.id}`, offer])).values()];
+  const unavailable = allUnique.filter((offer) => offer.available === false && productMatchScore(query, offer.name) >= 0.72 && offerMatchScore(query, offer) >= 0.72);
+  const unique = allUnique.filter((offer) => offer.available !== false);
+  const rejected = unique.filter((offer) => productMatchScore(query, offer.name) >= 0.72 && offerMatchScore(query, offer) === 0);
+  const withoutFormat = unique.filter((offer) => (
+    productMatchScore(query, offer.name) >= 0.72
+    && offerMatchScore(query, offer) >= 0.72
+    && (!(offer.normalizedPrice > 0) || !offer.normalizedUnit)
+  ));
+  const categoryCounts = rejected.reduce((counts, offer) => {
+    const category = candidateCategory(offer);
+    if (category && category !== "Otros") counts.set(category, (counts.get(category) || 0) + 1);
+    return counts;
+  }, new Map());
+  const categories = [...categoryCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([category]) => category);
+  return { count: rejected.length, categories, withoutFormatCount: withoutFormat.length, unavailableCount: unavailable.length };
+}
+
+function emptyStoreReason(meta, filtered) {
+  if (!filtered.count && filtered.withoutFormatCount) {
+    return `Se encontraron ${filtered.withoutFormatCount} ${filtered.withoutFormatCount === 1 ? "producto" : "productos"}, pero el supermercado no publica su peso o unidad y no se pueden comparar con rigor.`;
+  }
+  if (!filtered.count && filtered.unavailableCount) {
+    return `Hay ${filtered.unavailableCount} ${filtered.unavailableCount === 1 ? "coincidencia" : "coincidencias"}, pero ahora mismo figuran agotadas.`;
+  }
+  if (!filtered.count) return "No hay una coincidencia fiable para esta búsqueda.";
+  const categoryText = filtered.categories.length ? ` Son de ${filtered.categories.join(", ")}.` : "";
+  const aldiNote = meta.key === "aldi" ? " El surtido fresco de cada tienda puede no estar publicado en el catálogo online de Aldi." : "";
+  return `Se encontraron ${filtered.count} ${filtered.count === 1 ? "producto" : "productos"}, pero no son del mismo tipo.${categoryText}${aldiNote}`;
 }
 
 function comparisonSummary(stores) {
@@ -965,7 +1064,18 @@ export async function comparePrices(query, options = {}) {
       return { ...meta, status: "unavailable", offers: [], error: String(result.reason && result.reason.message || result.reason || "No disponible").slice(0, 120) };
     }
     const offers = rankOffers(cleanQuery, result.value, limit);
-    return { ...meta, status: offers.length ? "ok" : "empty", offers, error: null };
+    const filtered = filteredOfferSummary(cleanQuery, result.value);
+    return {
+      ...meta,
+      status: offers.length ? "ok" : "empty",
+      offers,
+      filteredCount: filtered.count,
+      filteredCategories: filtered.categories,
+      withoutFormatCount: filtered.withoutFormatCount,
+      unavailableCount: filtered.unavailableCount,
+      emptyReason: offers.length ? "" : emptyStoreReason(meta, filtered),
+      error: null,
+    };
   });
 
   const value = {

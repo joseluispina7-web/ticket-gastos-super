@@ -17,6 +17,8 @@ assert.equal(classifyProductName("BURRATA").category, "Lácteos");
 assert.equal(classifyProductName("PROTEÍNA BEBER FRESA").category, "Bebidas");
 assert.equal(classifyCatalogProduct("Carnes y aves", "Preparado fresco").category, "Carne");
 assert.equal(classifyCatalogProduct("Pescados y mariscos", "Filetes frescos").category, "Pescado");
+assert.equal(classifyCatalogProduct("Listo para comer", "Hamburguesa de pollo").category, "Platos y conservas");
+assert.equal(classifyCatalogProduct("Caldos, cremas y sopas", "Pastillas de pollo").category, "Platos y conservas");
 assert.equal(storeKeyFromName("El Corte Inglés / Hipercor"), "hipercor");
 assert.equal(storeKeyFromName("Mercadona"), "mercadona");
 
