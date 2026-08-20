@@ -39,6 +39,60 @@ assert.equal(parsed.items[2].name, "SALMON");
 assert.equal(guessCategory("panales Dodot talla 6"), "Bebe");
 assert.equal(guessCategory("pan integral"), "Panaderia");
 
+const carrefourMultiline = [
+  "Centros",
+  "Comerciales",
+  "Carrefour",
+  "CIF: A28425270",
+  "Telf. Directo Tienda 675087697",
+  "TINGA",
+  "DE",
+  "POLLO",
+  "4,09",
+  "CREMA",
+  "QUESO",
+  "CABRA",
+  "1,27",
+  "QUESO",
+  "UNTAR",
+  "NATURAL",
+  "2 x ( 1,24 )",
+  "2,48",
+  "PLATANO",
+  "1,29",
+  "NAPOLITANA",
+  "SUREME",
+  "2 x ( 0,79 )",
+  "1,58",
+  "RONDO",
+  "YOGUR",
+  "2,95",
+  "PIN. MOR CERDO ADOB",
+  "3,00",
+  "SECRETO CERDO VACIO",
+  "3,58",
+  "BOLSA 48X60CM",
+  "0,15",
+  "11 ART. TOTAL A PAGAR :",
+  "20,39",
+  "TOTAL VENTAJAS EN ESTA COMPRA:",
+  "0,21",
+  "Saldo acumulado a 27/09/2024:0,06 €",
+].join("\n");
+
+const parsedMultiline = parseReceiptText(carrefourMultiline);
+assert.equal(parsedMultiline.store, "Carrefour");
+assert.equal(parsedMultiline.date, "2024-09-27");
+assert.equal(parsedMultiline.total, 20.39);
+assert.equal(parsedMultiline.items.length, 9);
+assert.equal(parsedMultiline.items[0].name, "TINGA DE POLLO");
+assert.equal(parsedMultiline.items[2].name, "QUESO UNTAR NATURAL");
+assert.equal(parsedMultiline.items[2].quantity, 2);
+assert.equal(parsedMultiline.items[2].unitPrice, 1.24);
+assert.equal(parsedMultiline.items[2].lineTotal, 2.48);
+assert.equal(parsedMultiline.items.at(-1).name, "BOLSA 48X60CM");
+assert.ok(!parsedMultiline.items.some((item) => item.name.includes("Saldo") || item.lineTotal === 0.06));
+
 const pdfLines = groupPdfLines([
   { str: "PANALES TALLA 6", transform: [1, 0, 0, 1, 20, 700], width: 110 },
   { str: "18,45", transform: [1, 0, 0, 1, 240, 700], width: 32 },
