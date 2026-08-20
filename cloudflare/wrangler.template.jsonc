@@ -4,7 +4,8 @@
   "main": "dist/server/index.js",
   "compatibility_date": "2026-08-20",
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "head_sampling_rate": 1
   },
   "d1_databases": [
     {

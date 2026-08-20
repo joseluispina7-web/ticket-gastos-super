@@ -26,3 +26,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Jina Reader
+
+The Hipercor adapter uses the public Jina Reader endpoint as a fallback when
+Hipercor blocks direct server-side requests. Only the product search text and
+the public Hipercor results URL are sent to that service.
+
+https://jina.ai/reader/

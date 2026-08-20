@@ -7,6 +7,7 @@ import {
   parseAlcampoHtml,
   parseBasePrice,
   parseHipercorHtml,
+  parseHipercorMarkdown,
   parsePackageMetric,
   parseUnitPrice,
   productMatchScore,
@@ -19,6 +20,7 @@ assert.deepEqual(parsePackageMetric("Botella 750 ml"), { amount: 0.75, unit: "L"
 assert.equal(comparablePrice(1.5, parsePackageMetric("500 g")), 3);
 assert.deepEqual(parseBasePrice("1 kg = 2,99"), { value: 2.99, unit: "kg" });
 assert.deepEqual(parseUnitPrice("5,32€/KILO"), { value: 5.32, unit: "kg" });
+assert.deepEqual(parseUnitPrice("0,80 € / 100 ml"), { value: 8, unit: "L" });
 assert.ok(productMatchScore("panales talla 6", "Panales talla 6") > productMatchScore("panales talla 6", "Panales talla 2"));
 assert.equal(productMatchScore("panales talla 6", "Panales talla 2 de 3-6 kg"), 0);
 assert.equal(productMatchScore("panales talla 6", "Panales de agua talla S 6 unidades"), 0);
@@ -122,10 +124,14 @@ const hipercorHtml = `<script type="application/ld+json">${JSON.stringify({
   url: "/supermercado/panales-test",
   offers: { price: 9.6, availability: "https://schema.org/InStock" },
 })}</script>`;
+const hipercorCardHtml = `<div class="food-product-preview-responsive food-typeahead-product-preview-responsive" id="B001020616600035"><div class="food-product-preview-responsive__image"><img src="https://sgfm.elcorteingles.es/leche.jpg"></div><div class="food-prices"><div class="food-prices__price">1,17 €</div><div class="food-prices__measurement-unit">( 1,17 € / Litro )</div></div><a class="food-product-preview-responsive__description" href="/supermercado/B001020616600035-asturiana-leche-semidesnatada-brik-1-l/">leche semidesnatada ASTURIANA</a><span class="food-product-preview-responsive__sale_type">brik <span>|</span> 1 l</span></div>`;
+const hipercorMarkdown = `* [![Image 1](https://sgfm.elcorteingles.es/panales.jpg)](http://www.hipercor.es/supermercado/B001028022100999-hipercor-panales-talla-6-paquete-30-unidades/) Añadir Añadir 9,60 € ( 0,32 € / Unidad ) [Pañales talla 6 Hipercor 30 unidades](http://www.hipercor.es/supermercado/B001028022100999-hipercor-panales-talla-6-paquete-30-unidades/)paquete | 30 unidades [(0)](http://www.hipercor.es/supermercado/B001028022100999-hipercor-panales-talla-6-paquete-30-unidades/)`;
 
 assert.equal(parseAlcampoHtml(alcampoHtml)[0].normalizedPrice, 0.21);
 assert.equal(parseAhorramasHtml(ahorramasHtml)[0].normalizedPrice, 0.22);
 assert.equal(parseHipercorHtml(hipercorHtml)[0].normalizedPrice, 0.32);
+assert.equal(parseHipercorHtml(hipercorCardHtml)[0].normalizedPrice, 1.17);
+assert.equal(parseHipercorMarkdown(hipercorMarkdown)[0].normalizedPrice, 0.32);
 assert.deepEqual(normalizeEnabledStoreKeys(["lidl", "aldi"]), ["aldi"]);
 
 async function fixtureFetch(url) {
@@ -135,7 +141,8 @@ async function fixtureFetch(url) {
   if (String(url).includes("api.empathy.co")) return new Response(JSON.stringify({ catalog: { content: [carrefourItem] } }));
   if (String(url).includes("compraonline.alcampo.es")) return new Response(alcampoHtml, { headers: { "content-type": "text/html" } });
   if (String(url).includes("ahorramas.com")) return new Response(ahorramasHtml, { headers: { "content-type": "text/html" } });
-  if (String(url).includes("hipercor.es")) return new Response(hipercorHtml, { headers: { "content-type": "text/html" } });
+  if (String(url).includes("r.jina.ai")) return new Response(hipercorMarkdown, { headers: { "content-type": "text/markdown" } });
+  if (String(url).includes("hipercor.es")) return new Response("forbidden", { status: 403 });
   return new Response("not found", { status: 404 });
 }
 

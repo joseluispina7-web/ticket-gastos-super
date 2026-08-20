@@ -1,6 +1,7 @@
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 80;
 const SEARCH_TIMEOUT_MS = 12000;
+const READER_TIMEOUT_MS = 20000;
 const USER_AGENT = "Compra-Clara/0.2 (+https://github.com/joseluispina7-web/ticket-gastos-super)";
 const BROWSER_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36";
 
@@ -206,11 +207,11 @@ export function parseBasePrice(value) {
 
 export function parseUnitPrice(value) {
   const text = stripHtml(value).replace(/EUR/gi, "€");
-  const match = text.match(/(\d+(?:[.,]\d+)?)\s*€?\s*\/\s*(kg|kilo|kilogramo|l|litro|unidad|unidades|ud|uds|u)\b/i);
+  const match = text.match(/(\d+(?:[.,]\d+)?)\s*€?\s*\/\s*(?:(\d+(?:[.,]\d+)?)\s*)?(kg|kilo|kilogramo|g|gr|gramo|l|litro|ml|mililitro|cl|centilitro|unidad|unidades|ud|uds|u)\b/i);
   if (!match) return null;
-  const unit = normalizeComparisonUnit(match[2]);
   const price = numberFrom(match[1]);
-  return unit && price > 0 ? { value: price, unit } : null;
+  const basis = metricFrom(match[2] || 1, match[3]);
+  return basis && price > 0 ? { value: price / basis.amount, unit: basis.unit } : null;
 }
 
 export function comparablePrice(price, metric) {
@@ -479,9 +480,9 @@ export function parseAhorramasHtml(html) {
   });
 }
 
-async function fetchWithTimeout(fetcher, url, options = {}) {
+async function fetchWithTimeout(fetcher, url, options = {}, timeoutMs = SEARCH_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetcher(url, { ...options, signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -523,7 +524,61 @@ export function parseHipercorHtml(html) {
       products.push(mapHipercorProduct(entry));
     }
   }
-  return products;
+
+  const starts = [...source.matchAll(/<div[^>]+class=["'][^"']*\bfood-product-preview-responsive\b[^"']*["'][^>]+id=["'](B[A-Z0-9]+)["'][^>]*>/gi)];
+  for (const [index, marker] of starts.entries()) {
+    const block = source.slice(marker.index, starts[index + 1] ? starts[index + 1].index : source.length);
+    const description = block.match(/<a([^>]*\bfood-product-preview-responsive__description\b[^>]*)>([\s\S]*?)<\/a>/i);
+    const priceText = (block.match(/class=["'][^"']*\bfood-prices__price\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) || [])[1] || "";
+    const price = numberFrom(stripHtml(priceText).replace(/[^\d.,-]/g, ""));
+    if (!description || !price) continue;
+    const href = decodeHtml((description[1].match(/href=["']([^"']+)["']/i) || [])[1] || "");
+    const image = decodeHtml((block.match(/\bfood-product-preview-responsive__image\b[\s\S]*?<img[^>]+src=["']([^"']+)["']/i) || [])[1] || "");
+    const unitText = (block.match(/class=["'][^"']*\bfood-prices__measurement-unit\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) || [])[1] || "";
+    const packageText = (block.match(/<span[^>]+class=["'][^"']*\bfood-product-preview-responsive__sale_type\b[^"']*["'][^>]*>([\s\S]*?)<\/span>\s*(?=<div|<\/div>|<figure|$)/i) || [])[1] || "";
+    const base = parseUnitPrice(unitText);
+    products.push(offerShape(storeMeta("hipercor"), {
+      id: marker[1],
+      name: stripHtml(description[2]),
+      price,
+      normalizedPrice: base && base.value,
+      unit: base && base.unit,
+      packageLabel: stripHtml(packageText),
+      available: !/Agotado temporalmente/i.test(block),
+      imageUrl: image,
+      productUrl: href ? new URL(href, "https://www.hipercor.es").toString() : storeMeta("hipercor").homeUrl,
+    }));
+  }
+
+  return [...new Map(products.map((product) => [product.id, product])).values()];
+}
+
+export function parseHipercorMarkdown(markdown) {
+  const source = String(markdown || "");
+  const productStart = /\[!\[Image[^\]]*\]\((https?:\/\/[^)\s]+)\)\]\((https?:\/\/www\.hipercor\.es\/supermercado\/(B[A-Z0-9]+)[^)]*)\)/gi;
+  const starts = [...source.matchAll(productStart)];
+  return starts.flatMap((marker, index) => {
+    const block = source.slice(marker.index, starts[index + 1] ? starts[index + 1].index : source.length);
+    const links = [...block.matchAll(/\[([^\]\n]+)\]\((https?:\/\/www\.hipercor\.es\/supermercado\/B[A-Z0-9]+[^)]*)\)/gi)]
+      .filter((match) => !match[1].startsWith("!") && !/^\(\d+\)$/.test(match[1].trim()));
+    const description = links[0];
+    const priceMatch = block.match(/(\d+(?:[.,]\d+)?)\s*€/);
+    if (!description || !priceMatch) return [];
+    const remainder = block.slice(description.index + description[0].length);
+    const packageLabel = remainder.split(/!\[|\[\(\d+\)\]|\r?\n/)[0].replace(/\s+/g, " ").trim();
+    const base = parseUnitPrice(block);
+    return [offerShape(storeMeta("hipercor"), {
+      id: marker[3],
+      name: description[1].replace(/\s+/g, " ").trim(),
+      price: numberFrom(priceMatch[1]),
+      normalizedPrice: base && base.value,
+      unit: base && base.unit,
+      packageLabel,
+      available: !/Agotado temporalmente/i.test(block),
+      imageUrl: marker[1],
+      productUrl: description[2].replace(/^http:/i, "https:"),
+    })];
+  });
 }
 
 async function searchAldi(query, limit, fetcher) {
@@ -591,14 +646,28 @@ async function searchAhorramas(query, _limit, fetcher) {
 }
 
 async function searchHipercor(query, _limit, fetcher) {
-  const response = await fetchWithTimeout(fetcher, `https://www.hipercor.es/supermercado/buscar/?term=${encodeURIComponent(query)}`, {
-    headers: {
-      accept: "text/html,application/xhtml+xml",
-      "accept-language": "es-ES,es;q=0.9",
-      "user-agent": BROWSER_USER_AGENT,
-    },
-  });
-  const offers = parseHipercorHtml(await response.text());
+  const encodedQuery = encodeURIComponent(query);
+  const directUrl = `https://www.hipercor.es/supermercado/buscar/?question=${encodedQuery}&catalog=supermercado&stype=text_box`;
+  try {
+    const response = await fetchWithTimeout(fetcher, directUrl, {
+      headers: {
+        accept: "text/html,application/xhtml+xml",
+        "accept-language": "es-ES,es;q=0.9",
+        referer: "https://www.hipercor.es/supermercado/",
+        "user-agent": BROWSER_USER_AGENT,
+      },
+    });
+    const offers = parseHipercorHtml(await response.text());
+    if (offers.length) return offers;
+  } catch (_error) {
+    // Hipercor normally rejects server-side requests; use its public page through a text reader.
+  }
+
+  const readerUrl = `https://r.jina.ai/http://www.hipercor.es/supermercado/buscar/?question=${encodedQuery}%26catalog=supermercado%26stype=text_box`;
+  const response = await fetchWithTimeout(fetcher, readerUrl, {
+    headers: { accept: "text/markdown,text/plain;q=0.9", "user-agent": USER_AGENT },
+  }, READER_TIMEOUT_MS);
+  const offers = parseHipercorMarkdown(await response.text());
   if (!offers.length) throw new Error("Hipercor no ha devuelto productos en formato legible");
   return offers;
 }

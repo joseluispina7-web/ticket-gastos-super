@@ -32,7 +32,7 @@ Activas:
 - Alcampo mediante el estado de catálogo publicado en su página de resultados.
 - Ahorramas mediante las fichas estructuradas de su buscador online.
 - Aldi mediante su índice público de Algolia, con región de península.
-- Hipercor como fuente seleccionable. Su web puede bloquear la consulta automática directa; si ocurre, aparece como no disponible sin contaminar el resto.
+- Hipercor mediante su buscador público. Como su web bloquea normalmente las consultas de servidor, el adaptador usa Jina Reader como vía de lectura de respaldo y nunca inventa precios.
 
 Quitada:
 
