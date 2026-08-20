@@ -21,6 +21,7 @@ const CATEGORIES = [
   "Limpieza",
   "Cereales y pasta",
   "Platos y conservas",
+  "Salsas",
   "Pescado",
   "Dulces y snacks",
   "Frutos secos",

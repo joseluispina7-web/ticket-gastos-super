@@ -53,7 +53,9 @@ TOTAL COMPRA EUR 18,84
 
 En ese caso guarda cantidad `2`, unitario `3,99` y total `7,98`, ignora `Precio unitario`, IVA, efectivo y cambio, y detecta fechas como `17/ago/26`.
 
-También corrige palabras comunes sin acento al limpiar productos, por ejemplo `panales` -> `pañales`, `salmon` -> `salmón`, `atun` -> `atún`.
+En tickets digitales de Mercadona, la primera cifra es la cantidad comprada. Los tamaños incluidos en el nombre, como `1 ZANAHORIA 500 G` o `1 ALBONDIGAS 24 UNID.`, no se convierten en 500 o 24 unidades. La línea `TOTAL (€)` prevalece sobre el `TOTAL` del desglose final de IVA.
+
+También corrige palabras comunes sin acento al limpiar productos, por ejemplo `panales` -> `pañales`, `salmon` -> `salmón`, `atun` -> `atún` y `albondigas` -> `albóndigas`. `Salsas` es una categoría independiente.
 
 ## Archivos Clave
 

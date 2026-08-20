@@ -994,6 +994,7 @@
       "Limpieza": "#536d45",
       "Cereales y pasta": "#c76565",
       "Platos y conservas": "#657a3d",
+      "Salsas": "#b44e6b",
       "Pescado": "#7e8fa0",
       "Dulces y snacks": "#d2762d",
       "Frutos secos": "#4a8b58",
@@ -1016,19 +1017,20 @@
 
     var KEYWORDS = [
       ["Bebé", ["panal", "panales", "pañal", "pañales", "potito", "bebe", "infantil", "toallitas", "dodot", "leche crecimiento", "papilla"]],
-      ["Pescado", ["merluza", "salmon", "bacalao", "atun", "bonito", "pescado", "gamba", "langostino", "calamar", "sardina", "sepia", "mejillon"]],
-      ["Carne", ["pollo", "pavo", "ternera", "cerdo", "lomo", "carne", "burger", "hamburguesa", "salchicha", "chorizo", "bacon", "conejo", "costilla"]],
-      ["Lácteos", ["leche", "yogur", "queso", "mantequilla", "nata", "kefir", "cuajada", "flan", "requeson", "batido", "colacao shake"]],
-      ["Fruta", ["platano", "banana", "manzana", "pera", "naranja", "melon", "sandia", "kiwi", "uva", "fresa", "limon", "mandarina", "aguacate", "melocoton"]],
-      ["Verdura", ["tomate", "lechuga", "cebolla", "patata", "zanahoria", "calabacin", "pimiento", "brocoli", "verdura", "pepino", "berenjena", "ensalada", "calabaza"]],
-      ["Charcutería", ["jamon", "pate", "chopped", "fuet", "salami", "mortadela", "charcuteria", "embutido", "pechuga lonchas"]],
-      ["Higiene", ["champu", "gel", "dental", "pasta dientes", "desodorante", "compresa", "papel higienico", "afeitado", "colonia", "jabon manos"]],
+      ["Pescado", ["merluza", "salmon", "bacalao", "atun", "bonito", "melva", "pota", "pescado", "gamba", "langostino", "calamar", "sardina", "sepia", "mejillon"]],
+      ["Carne", ["pollo", "pavo", "ternera", "cerdo", "lomo", "solomillo", "pechuga", "albondiga", "albondigas", "cuarto trasero", "carne", "burger", "hamburguesa", "salchicha", "chorizo", "bacon", "conejo", "costilla", "costillar"]],
+      ["Lácteos", ["leche", "yogur", "queso", "feta", "burrata", "mantequilla", "nata", "kefir", "cuajada", "flan", "requeson", "batido", "colacao shake"]],
+      ["Fruta", ["platano", "banana", "manzana", "pera", "naranja", "melon", "sandia", "kiwi", "uva", "fresa", "limon", "mandarina", "aguacate", "melocoton", "paraguayo", "mango", "pina"]],
+      ["Verdura", ["tomate", "lechuga", "cebolla", "patata", "zanahoria", "calabacin", "pimiento", "brocoli", "verdura", "pepino", "berenjena", "ensalada", "calabaza", "champinon"]],
+      ["Charcutería", ["jamon", "pate", "chopped", "fuet", "salami", "mortadela", "charcuteria", "embutido", "lacon", "pechuga lonchas"]],
+      ["Higiene", ["champu", "gel", "dental", "pasta dientes", "desodorante", "compresa", "papel higienico", "afeitado", "colonia", "jabon manos", "laca", "discos desm", "desmaquillante"]],
       ["Panadería", ["pan", "barra", "baguette", "pan molde", "croissant", "napolitana", "bolleria", "tortilla trigo", "brioche"]],
-      ["Bebidas", ["agua", "cerveza", "vino", "refresco", "cola", "zumo", "cafe", "bebida", "tonica", "sidra", "licor"]],
+      ["Bebidas", ["agua", "cerveza", "vino", "refresco", "cola", "zumo", "cafe", "bebida", "beber", "proteina beber", "tonica", "sidra", "licor"]],
       ["Limpieza", ["detergente", "lejia", "limpiador", "lavavajillas", "suavizante", "fregasuelos", "bayeta", "estropajo", "bolsa basura", "cucarachicida", "insecticida", "ambientador"]],
-      ["Cereales y pasta", ["pasta", "macarron", "spaghetti", "espagueti", "arroz", "cereal", "avena", "harina", "cuscus", "fideo"]],
-      ["Platos y conservas", ["conserva", "lata", "garbanzo", "lenteja", "fabada", "caldo", "sopa", "gazpacho", "crema", "vinagre", "aceite", "mayonesa", "ketchup"]],
-      ["Dulces y snacks", ["kinder", "chocolate", "menta con chocolate", "galleta", "snack", "patata frita", "helado", "dulce", "caramelo", "bizcocho", "turron", "gominola", "bombon"]],
+      ["Cereales y pasta", ["pasta", "macarron", "spaghetti", "espagueti", "arroz", "cereal", "avena", "muesli", "quinoa", "chia", "harina", "cuscus", "fideo"]],
+      ["Platos y conservas", ["conserva", "lata", "garbanzo", "lenteja", "fabada", "caldo", "sopa", "gazpacho", "crema", "vinagre", "aceite"]],
+      ["Salsas", ["salsa", "mayonesa", "ketchup", "mostaza", "alioli", "barbacoa", "pesto", "sofrito", "tomate frito"]],
+      ["Dulces y snacks", ["kinder", "chocolate", "menta con chocolate", "galleta", "snack", "patata frita", "helado", "dulce", "caramelo", "bizcocho", "turron", "gominola", "bombon", "miel"]],
       ["Frutos secos", ["almendra", "nuez", "nueces", "pistacho", "cacahuete", "anacardo", "avellana"]],
       ["Huevos", ["huevo", "huevos"]],
       ["Congelados", ["congelado", "congelada", "pizza", "croqueta", "hielo", "ultracongelado"]],
@@ -1037,6 +1039,10 @@
     ];
 
     var PRIORITY_KEYWORDS = [
+      ["Salsas", ["salsa", "mayonesa", "ketchup", "mostaza", "alioli", "barbacoa", "pesto"]],
+      ["Pescado", ["melva", "pota", "mejillon"]],
+      ["Carne", ["albondiga", "albondigas", "solomillo", "cuarto trasero", "filete pechuga"]],
+      ["Bebidas", ["proteina beber"]],
       ["Platos y conservas", ["vinagre", "aceite oliva", "aceite girasol"]],
       ["Dulces y snacks", ["kinder", "menta con chocolate"]],
       ["Limpieza", ["cucarachicida", "insecticida"]],
@@ -1935,7 +1941,17 @@
 
     function detectTotal(lines, items) {
       var found = findTotal(lines);
-      return found ? found.total : items.reduce(function(sum, item) { return sum + item.lineTotal; }, 0);
+      return resolveReceiptTotal(found, items);
+    }
+
+    function resolveReceiptTotal(found, items) {
+      var itemTotal = items.reduce(function(sum, item) { return sum + Number(item.lineTotal || 0); }, 0);
+      itemTotal = Math.round(itemTotal * 100) / 100;
+      return found && Number(found.total) ? found.total : itemTotal;
+    }
+
+    function isAuthoritativeTotalLine(line) {
+      return /total\s+a\s+pagar|a\s+pagar|^total\s*\(\s*(?:€|eur|euros?)\s*\)/i.test(line);
     }
 
     function findTotal(lines) {
@@ -1943,10 +1959,11 @@
       for (var index = 0; index < lines.length; index += 1) {
         var line = lines[index];
         if (!isTotalLine(line)) continue;
+        if (/^total\s+\d{1,5}[.,]\d{2}\s*(?:€|eur)?\s+\d{1,5}[.,]\d{2}\s*(?:€|eur)?\s*$/i.test(line)) continue;
         var match = line.match(/(-?\d{1,5}(?:[.,]\d{2}))\s*(?:eur|euro|€)?\s*$/i);
         if (match) {
           best = { total: parseMoney(match[1]), index: index };
-          if (/total\s+a\s+pagar|a\s+pagar/i.test(line)) return best;
+          if (isAuthoritativeTotalLine(line)) return best;
           continue;
         }
         for (var offset = 1; offset <= 3 && index + offset < lines.length; offset += 1) {
@@ -1954,7 +1971,7 @@
           var nextMatch = nextLine.match(/^\s*(-?\d{1,5}(?:[.,]\d{2}))\s*(?:eur|euro|€)?\s*$/i);
           if (nextMatch) {
             best = { total: parseMoney(nextMatch[1]), index: index };
-            if (/total\s+a\s+pagar|a\s+pagar/i.test(line)) return best;
+            if (isAuthoritativeTotalLine(line)) return best;
             break;
           }
         }
@@ -2018,6 +2035,15 @@
         ["limon", "limón"],
         ["melon", "melón"],
         ["requeson", "requesón"],
+        ["albondigas", "albóndigas"],
+        ["albondiga", "albóndiga"],
+        ["champinones", "champiñones"],
+        ["champinon", "champiñón"],
+        ["proteina", "proteína"],
+        ["mejillon", "mejillón"],
+        ["kefir", "kéfir"],
+        ["lacon", "lacón"],
+        ["pina", "piña"],
         ["champu", "champú"],
         ["calabacin", "calabacín"],
         ["brocoli", "brócoli"],
@@ -2053,16 +2079,22 @@
       var quantity = 1;
       var unitPrice = lineTotal;
       var quantityMatch = prefix.match(/(\d+(?:[.,]\d+)?)\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\(?\s*(\d+(?:[.,]\d{2}))\s*\)?/i);
-      var weightMatch = prefix.match(/(\d+[.,]\d+)\s*kg\b.*?(\d+(?:[.,]\d{2}))\s*(?:eur\/?kg|e\/kg|euros?\/kg)/i);
+      var weightMatch = prefix.match(/(\d+[.,]\d+)\s*kg\b.*?(\d+(?:[.,]\d{2}))\s*(?:€\/?kg|eur\/?kg|e\/kg|euros?\/kg)/i);
+      var mercadonaQuantityMatch = store === "Mercadona"
+        ? prefix.match(/^(\d+(?:[.,]\d+)?)\s+(?=[A-ZÁÉÍÓÚÑ])/i)
+        : null;
       var hipercorQuantityMatch = store === "Hipercor"
         ? prefix.match(/\s+([1-9]\d*(?:[.,]\d+)?)\s*[A-D8]\s*$/i)
-        : prefix.match(/\s+(\d+(?:[.,]\d+)?)\s+[A-Z]\s*$/i);
+        : null;
       if (weightMatch) {
         quantity = Math.max(parseMoney(weightMatch[1]), 0.001);
         unitPrice = parseMoney(weightMatch[2]);
       } else if (quantityMatch) {
         quantity = Math.max(parseMoney(quantityMatch[1]), 0.001);
         unitPrice = parseMoney(quantityMatch[2]);
+      } else if (mercadonaQuantityMatch) {
+        quantity = Math.max(parseMoney(mercadonaQuantityMatch[1]), 0.001);
+        unitPrice = lineTotal / quantity;
       } else if (hipercorQuantityMatch) {
         quantity = Math.max(parseMoney(hipercorQuantityMatch[1]), 0.001);
         unitPrice = lineTotal / quantity;
@@ -2071,7 +2103,19 @@
       if (weightMatch) {
         labelPrefix = labelPrefix
           .replace(/^\s*\d+[.,]\d+\s*kg\s*/i, "")
-          .replace(/\s+\d+(?:[.,]\d{2})\s*(?:eur\/?kg|e\/kg|euros?\/kg)\s*$/i, "");
+          .replace(/(?:^|\s)\d+(?:[.,]\d{2})\s*(?:€\/?kg|eur\/?kg|e\/kg|euros?\/kg)\s*$/i, "");
+        if (pendingName) labelPrefix = pendingName;
+      }
+      if (mercadonaQuantityMatch && !weightMatch && !quantityMatch) {
+        labelPrefix = labelPrefix.slice(mercadonaQuantityMatch[0].length).trim();
+        var mercadonaUnitPriceMatch = labelPrefix.match(/\s+(\d+(?:[.,]\d{2}))\s*$/);
+        if (mercadonaUnitPriceMatch && quantity > 1) {
+          var candidateUnitPrice = parseMoney(mercadonaUnitPriceMatch[1]);
+          if (Math.abs(candidateUnitPrice * quantity - lineTotal) < 0.03) {
+            unitPrice = candidateUnitPrice;
+            labelPrefix = labelPrefix.slice(0, mercadonaUnitPriceMatch.index).trim();
+          }
+        }
       }
       if (hipercorQuantityMatch) labelPrefix = labelPrefix.slice(0, hipercorQuantityMatch.index).trim();
       var name = cleanProductLabel(labelPrefix);
@@ -2118,7 +2162,9 @@
           return;
         }
         if (!/\d{1,5}[.,]\d{2}/.test(line) && /[a-zA-Z\u00c0-\u017f]{2}/.test(line) && line.length <= 80) {
-          pendingName = cleanProductLabel((pendingName ? pendingName + " " : "") + line).slice(0, 120);
+          var pendingLabel = (pendingName ? pendingName + " " : "") + line;
+          if (store === "Mercadona") pendingLabel = pendingLabel.replace(/^\s*\d+(?:[.,]\d+)?\s+(?=[A-ZÁÉÍÓÚÑ])/i, "");
+          pendingName = cleanProductLabel(pendingLabel).slice(0, 120);
           pendingPricing = "";
         }
       });
@@ -2128,7 +2174,7 @@
         sourceName: (els.ticketFile.files[0] && els.ticketFile.files[0].name) || "",
         rawText: text,
         items: items.slice(0, 220),
-        total: totalInfo ? totalInfo.total : detectTotal(lines, items)
+        total: resolveReceiptTotal(totalInfo, items)
       };
     }
 

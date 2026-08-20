@@ -165,6 +165,72 @@ assert.equal(parsedHipercorMobile.items[3].category, "Dulces y snacks");
 assert.equal(parsedHipercorMobile.items[4].name, "CUCARACHICIDA");
 assert.equal(parsedHipercorMobile.items[4].category, "Limpieza");
 
+const mercadonaDigital = [
+  "MERCADONA, S.A. A-46103834",
+  "11/08/2026 11:22 OP: 3125441",
+  "Descripción P. Unit Importe",
+  "1 CUARTO TRASERO 2 UND 3,63",
+  "1 BURGER CON QUESO 3,00",
+  "1 PARAGUAYO BANDEJA 1,80",
+  "1 COSTILLAR 1/2 PATATA 7,00",
+  "2 SALMÓN CON VERDURAS 5,75 11,50",
+  "1 KÉFIR 1,10",
+  "1 CREMA DE CALABAZA 1,70",
+  "1 DISCOS DESM REDONDO 1,00",
+  "1 QUESO FETA 2,40",
+  "1 ZANAHORIA 500 G 0,80",
+  "1 MEJILLÓN NATURAL 2,00",
+  "1 TACOS DE POTA AJILLO 3,20",
+  "1 CHAMPIÑÓN LIMPIO LAM 1,69",
+  "1 BURRATA 2,20",
+  "1 PIÑA PELADA RODAJAS 3,98",
+  "1 KIWI VERDE BANDEJA 5,17",
+  "1 ALMENDRA TOST S/PIEL 2,90",
+  "1 PISTACHO TOST 0% SAL 3,40",
+  "1 PROTEÍNA BEBER FRESA 1,15",
+  "1 SALSA MIEL Y MOSTAZA 1,45",
+  "1 MUESLI QUINOA CHIA 2,40",
+  "1 SOLOMILLO CERDO 3,65",
+  "1 SOLOMILLO CERDO 3,85",
+  "1 LACA XTRAFORTE 1,90",
+  "1 FILETE MELVA OLIVA 1,85",
+  "1 GAZPACHO FRESCO 1,10",
+  "1 AGUACATE BANDEJA 3,18",
+  "1 FILETE PECHUGA 4,83",
+  "1 ALBONDIGAS 24 UNID. 4,55",
+  "1 MAYONESA BOCA ABAJO 1,40",
+  "1 TOMATE ROSA",
+  "0,388 kg 2,70 €/kg 1,05",
+  "1 MANGO",
+  "0,522 kg 3,25 €/kg 1,70",
+  "1 PARKING 0,00",
+  "TOTAL (€) 92,53",
+  "TARJETA BANCARIA 12,53",
+  "ENTREGA EFECTIVO 80,00",
+  "IVA BASE IMPONIBLE (€) CUOTA (€)",
+  "TOTAL 85,26 7,27"
+].join("\n");
+
+const parsedMercadona = parseReceiptText(mercadonaDigital);
+assert.equal(parsedMercadona.store, "Mercadona");
+assert.equal(parsedMercadona.date, "2026-08-11");
+assert.equal(parsedMercadona.total, 92.53);
+assert.equal(parsedMercadona.items.find((item) => item.name === "SALMÓN CON VERDURAS").quantity, 2);
+assert.equal(parsedMercadona.items.find((item) => item.name === "SALMÓN CON VERDURAS").unitPrice, 5.75);
+assert.equal(parsedMercadona.items.find((item) => item.name === "ZANAHORIA").quantity, 1);
+assert.equal(parsedMercadona.items.find((item) => item.name === "ALBÓNDIGAS 24 UNID").quantity, 1);
+assert.equal(parsedMercadona.items.find((item) => item.name === "TOMATE ROSA").quantity, 0.388);
+assert.equal(parsedMercadona.items.find((item) => item.name === "MANGO").quantity, 0.522);
+assert.equal(parsedMercadona.items.find((item) => item.name === "SALSA MIEL Y MOSTAZA").category, "Salsas");
+assert.equal(parsedMercadona.items.find((item) => item.name === "MAYONESA BOCA ABAJO").category, "Salsas");
+assert.equal(parsedMercadona.items.find((item) => item.name === "FILETE MELVA OLIVA").category, "Pescado");
+assert.equal(parsedMercadona.items.find((item) => item.name === "ALBÓNDIGAS 24 UNID").category, "Carne");
+assert.equal(parsedMercadona.items.find((item) => item.name === "MUESLI QUINOA CHIA").category, "Cereales y pasta");
+assert.equal(parsedMercadona.items.find((item) => item.name === "LACA XTRAFORTE").category, "Higiene");
+assert.equal(parsedMercadona.items.find((item) => item.name === "DISCOS DESM REDONDO").category, "Higiene");
+assert.equal(parsedMercadona.items.find((item) => item.name === "PROTEÍNA BEBER FRESA").category, "Bebidas");
+assert.equal(parsedMercadona.items.length, 32);
+
 const pdfLines = groupPdfLines([
   { str: "PANALES TALLA 6", transform: [1, 0, 0, 1, 20, 700], width: 110 },
   { str: "18,45", transform: [1, 0, 0, 1, 240, 700], width: 32 },

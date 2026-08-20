@@ -74,6 +74,7 @@ The workflow `Deploy Cloudflare` runs automatically on every push to `main` and 
 
 - Keep OCR/import parsing client-side unless storage or background processing is explicitly added.
 - Hipercor paper tickets use lines like `KINDER MAXI 10 UNIDA 2 B 7,98`; parse quantity `2`, unit price `3,99` and total `7,98`. OCR variants such as `SANCHINARRO HIFER` and `KINDER MAXI 1(1 UNIDA 28 7,98` must also activate this parser.
+- Mercadona digital tickets start product rows with the purchased quantity. Package descriptions such as `500 G`, `2 UND` or `24 UNID.` belong to the product name and must not replace that leading quantity. Prefer `TOTAL (€)` over the final tax breakdown row such as `TOTAL 85,26 7,27`.
 - Ignore tax/payment/footer lines such as `Precio unitario`, `IVA`, `EFECTIVO`, `CAMBIO`, `Base`, `Cuota` and control codes.
 - Preserve manual review. OCR output must never be saved without letting the user fix it.
 - Product text corrections should be conservative and visible in tests.
