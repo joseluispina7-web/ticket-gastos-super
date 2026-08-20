@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ticket-gastos-super",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-08-20",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ticket-gastos-super",
+      "database_id": "578b1943-143b-44c7-874e-8504265d8882"
+    }
+  ]
+}

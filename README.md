@@ -6,7 +6,7 @@ Web multiusuario para subir tickets de supermercado, revisar líneas de compra y
 
 https://ticket-gastos-super.erpozi.chatgpt.site
 
-Esa URL sigue siendo de OpenAI Sites. El código vive en GitHub para que cualquier ChatGPT/Codex con acceso al repositorio pueda continuar el proyecto. Para publicar sin depender de una cuenta concreta de ChatGPT, se ha dejado preparado un despliegue manual a Cloudflare Workers + D1.
+Esa URL sigue funcionando durante la migración. El código vive en GitHub para que cualquier ChatGPT/Codex con acceso al repositorio pueda continuar el proyecto. Cloudflare Workers + D1 usa el mismo repositorio como fuente de publicación independiente.
 
 ## Producto
 
@@ -15,9 +15,9 @@ Esa URL sigue siendo de OpenAI Sites. El código vive en GitHub para que cualqui
 - Cada usuario ve solo sus tickets.
 - Subida de PDF, imagen o texto pegado.
 - Lectura de PDF con reconstrucción de líneas y OCR para documentos escaneados o fotos hechas con móvil.
-- Revisión manual antes de guardar.
+- Revisión manual antes de guardar y edición o eliminación posterior de cualquier ticket.
 - Categorías aprendidas por usuario, con nombres canónicos como `Lácteos`, `Bebé`, `Panadería` y `Charcutería`.
-- Dashboard mensual con total, tickets, productos únicos, categoría top, donut de categorías, histórico, total anual y top productos.
+- Dashboard mensual con total, tickets, productos únicos, categoría top, donut de categorías, gasto por supermercado, histórico, total anual y top productos con sus unidades.
 - Comparador configurable desde Ajustes.
 - Plan de compra privado por usuario, con tienda, precio estimado y ahorro comparable.
 - Estado vacío real: la aplicación no muestra supermercados ni importes inventados.
@@ -51,7 +51,7 @@ El parser soporta formatos de ticket con línea única y líneas partidas. Para 
 
 ```text
 VINAGRE VINO BLANCO 1 B 0,69
-KINDER MAXI 10 UNIDA 2 B 7,98
+KINDER MAXI 10 UNIDADES 2 B 7,98
 Precio unitario 3,99
 TOTAL COMPRA EUR 18,84
 ```
@@ -71,8 +71,9 @@ También corrige palabras comunes sin acento al limpiar productos, por ejemplo `
 - `scripts/test_comparison.mjs`: valida formatos, sinónimos, fuentes activas con fixtures y tiendas pendientes.
 - `scripts/dev_server.mjs`: servidor local con preview, comparador, ajustes y plan local.
 - `.openai/hosting.json`: proyecto actual de Sites.
-- `.github/workflows/deploy-cloudflare.yml`: despliegue manual a Cloudflare cuando estén configurados los secretos.
-- `cloudflare/wrangler.template.jsonc`: plantilla de Wrangler para Cloudflare Workers + D1.
+- `wrangler.jsonc`: configuración activa de Cloudflare Workers y enlace a D1.
+- `.github/workflows/deploy-cloudflare.yml`: alternativa manual de despliegue si se necesitara.
+- `cloudflare/wrangler.template.jsonc`: plantilla reutilizable para otra cuenta de Cloudflare.
 
 ## Trabajar Desde Cualquier ChatGPT
 
@@ -90,7 +91,7 @@ Lee README.md y AGENTS.md antes de tocar nada.
 Haz los cambios en una rama codex/<tema>.
 Ejecuta node scripts/check.mjs antes de terminar.
 No guardes secretos en el repositorio.
-Si hay que publicar en Cloudflare, usa el workflow Deploy Cloudflare y los secretos del repositorio.
+Publica los cambios en la rama `main`; Cloudflare Builds desplegará esa rama automáticamente.
 ```
 
 Si ese ChatGPT no puede escribir en GitHub, hay que entrar en GitHub con tu cuenta y autorizarlo o añadirlo como colaborador. La edición queda asociada al repo, no a una cuenta concreta de ChatGPT.
@@ -120,23 +121,12 @@ Objetivo: que la publicación no dependa de OpenAI Sites ni de una cuenta concre
 
 Estado actual:
 
-- El repo ya contiene un workflow manual: `.github/workflows/deploy-cloudflare.yml`.
-- El workflow compila, prueba, genera `dist/` y despliega con Wrangler.
-- Usa `cloudflare/wrangler.template.jsonc`.
+- La base D1 `ticket-gastos-super` está creada y enlazada en `wrangler.jsonc` mediante el binding `DB`.
 - La app crea sus tablas D1 automáticamente al primer uso con `ensureSchema`.
+- Cloudflare Builds usa `main`, ejecuta `node scripts/check.mjs` y despliega con `npx wrangler deploy`.
+- El workflow manual permanece como alternativa, pero el flujo normal no necesita secretos de Cloudflare en GitHub.
 
-Pendiente una sola vez en GitHub/Cloudflare:
-
-1. Crear una base D1 en Cloudflare llamada `ticket-gastos-super`.
-2. Guardar estos secretos en el repositorio de GitHub:
-   - `CLOUDFLARE_API_TOKEN`
-   - `CLOUDFLARE_ACCOUNT_ID`
-   - `CLOUDFLARE_D1_DATABASE_ID`
-   - `INVITE_CODE`
-3. Ejecutar manualmente el workflow `Deploy Cloudflare`.
-4. Probar registro, login, dashboard, importación de foto/PDF y ajustes.
-
-No metas el código de invitación ni tokens en archivos del repo. `INVITE_CODE` debe ser secreto; si no se configura, la app permitirá registrar hasta 3 usuarios sin código.
+El único valor privado opcional es `INVITE_CODE`. Se configura como secreto del Worker en Cloudflare, nunca en el repositorio. Si no existe, la app permite registrar hasta 3 usuarios sin código.
 
 ## Publicación En Sites
 
