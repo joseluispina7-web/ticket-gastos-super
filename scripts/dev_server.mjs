@@ -2,7 +2,7 @@ import { createReadStream, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { comparePrices } from "../server/comparison.js";
+import { COMPARISON_STORES, DEFAULT_ENABLED_STORES, comparePrices, normalizeEnabledStoreKeys } from "../server/comparison.js";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const host = process.env.HOST || "127.0.0.1";
@@ -18,6 +18,7 @@ const mimeTypes = {
   ".svg": "image/svg+xml",
 };
 const localPlan = [];
+let localEnabledStores = DEFAULT_ENABLED_STORES;
 
 function sendJson(response, data, status = 200) {
   response.writeHead(status, { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" });
@@ -47,12 +48,33 @@ const server = createServer(async (request, response) => {
     try {
       const result = await comparePrices(requestUrl.searchParams.get("q"), {
         limit: requestUrl.searchParams.get("limit") || 6,
+        enabledStores: localEnabledStores,
       });
       sendJson(response, { ok: true, ...result });
     } catch (error) {
       sendJson(response, { error: String(error && error.message || "No se pudo comparar") }, 400);
     }
     return;
+  }
+  if (requestUrl.pathname === "/api/settings") {
+    if (request.method === "GET") {
+      sendJson(response, { ok: true, stores: COMPARISON_STORES, enabledStores: localEnabledStores });
+      return;
+    }
+    if (request.method === "PUT") {
+      const body = await readJson(request);
+      const validStoreKeys = new Set(COMPARISON_STORES.map((store) => store.key));
+      const selected = Array.isArray(body.enabledStores)
+        ? body.enabledStores.map((key) => String(key || "").trim().toLowerCase()).filter((key) => validStoreKeys.has(key))
+        : [];
+      if (!selected.length) {
+        sendJson(response, { error: "Selecciona al menos un supermercado" }, 400);
+        return;
+      }
+      localEnabledStores = normalizeEnabledStoreKeys(selected);
+      sendJson(response, { ok: true, stores: COMPARISON_STORES, enabledStores: localEnabledStores });
+      return;
+    }
   }
   if (requestUrl.pathname === "/api/shopping-plan") {
     if (request.method === "GET") {

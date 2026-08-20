@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import {
   comparePrices,
   comparablePrice,
+  normalizeEnabledStoreKeys,
   parseAhorramasHtml,
   parseAlcampoHtml,
   parseBasePrice,
+  parseHipercorHtml,
   parsePackageMetric,
   parseUnitPrice,
   productMatchScore,
@@ -41,19 +43,6 @@ const mercadonaHit = {
     reference_format: "ud",
     unit_size: 22,
     size_format: "ud",
-  },
-};
-
-const lidlItem = {
-  code: "l1",
-  gridbox: {
-    data: {
-      fullTitle: "Lupilu Panales talla 6",
-      brand: { name: "Lupilu" },
-      canonicalUrl: "/p/test/p1",
-      keyfacts: { description: "<ul><li>64 uds</li></ul>" },
-      price: { price: 12.62, packaging: { text: "Paquete" }, basePrice: { text: "" } },
-    },
   },
 };
 
@@ -123,30 +112,41 @@ const ahorramasLayer = encodeURIComponent(JSON.stringify({
   price: "7.92",
 }));
 const ahorramasHtml = `<div class="product viewed" data-pid="h1"><a href="/panales-talla-6-h1.html" class="product-pdp-link" data-gtm-layer="${ahorramasLayer}"><img class="tile-image" src="https://www.ahorramas.com/test.jpg"></a><span class="unit-price-per-unit grey">0,22€/UD</span><div data-available="true"></div></div>`;
+const hipercorHtml = `<script type="application/ld+json">${JSON.stringify({
+  "@type": "Product",
+  name: "Pañales talla 6 Hipercor 30 unidades",
+  sku: "hi1",
+  brand: { name: "Hipercor" },
+  category: "Bebé",
+  image: "https://sgfm.elcorteingles.es/test.jpg",
+  url: "/supermercado/panales-test",
+  offers: { price: 9.6, availability: "https://schema.org/InStock" },
+})}</script>`;
 
 assert.equal(parseAlcampoHtml(alcampoHtml)[0].normalizedPrice, 0.21);
 assert.equal(parseAhorramasHtml(ahorramasHtml)[0].normalizedPrice, 0.22);
+assert.equal(parseHipercorHtml(hipercorHtml)[0].normalizedPrice, 0.32);
+assert.deepEqual(normalizeEnabledStoreKeys(["lidl", "aldi"]), ["aldi"]);
 
 async function fixtureFetch(url) {
   if (String(url).includes("L9KNU74IO7-dsn.algolia.net")) return new Response(JSON.stringify({ hits: [aldiHit] }));
   if (String(url).includes("7UZJKL1DJ0-dsn.algolia.net")) return new Response(JSON.stringify({ hits: [mercadonaHit] }));
-  if (String(url).includes("lidl.es")) {
-    assert.match(String(url), /version=v2\.0\.0/);
-    assert.match(String(url), /store=1/);
-    return new Response(JSON.stringify({ items: [lidlItem] }));
-  }
   if (String(url).includes("dia.es")) return new Response(JSON.stringify({ search_items: [diaItem] }));
   if (String(url).includes("api.empathy.co")) return new Response(JSON.stringify({ catalog: { content: [carrefourItem] } }));
   if (String(url).includes("compraonline.alcampo.es")) return new Response(alcampoHtml, { headers: { "content-type": "text/html" } });
   if (String(url).includes("ahorramas.com")) return new Response(ahorramasHtml, { headers: { "content-type": "text/html" } });
+  if (String(url).includes("hipercor.es")) return new Response(hipercorHtml, { headers: { "content-type": "text/html" } });
   return new Response("not found", { status: 404 });
 }
 
 const comparison = await comparePrices("panales talla 6", { fetcher: fixtureFetch, cache: false, limit: 3 });
 assert.deepEqual(comparison.stores.map((store) => store.status), ["ok", "ok", "ok", "ok", "ok", "ok", "ok"]);
 assert.equal(comparison.comparison.unit, "unit");
-assert.equal(comparison.comparison.cheapest.store, "Lidl");
-assert.equal(comparison.comparison.cheapest.offer.normalizedPrice, 0.197);
-assert.deepEqual(comparison.upcomingStores.map((store) => store.key), ["hipercor", "supercor", "eroski"]);
+assert.equal(comparison.comparison.cheapest.store, "Alcampo");
+assert.equal(comparison.comparison.cheapest.offer.normalizedPrice, 0.21);
+assert.deepEqual(comparison.upcomingStores.map((store) => store.key), ["supercor", "eroski"]);
+
+const limited = await comparePrices("panales talla 6", { fetcher: fixtureFetch, cache: false, limit: 3, enabledStores: ["mercadona", "aldi"] });
+assert.deepEqual(limited.stores.map((store) => store.key), ["mercadona", "aldi"]);
 
 console.log("Price comparison tests passed");

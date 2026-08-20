@@ -1,18 +1,23 @@
 import { HTML } from "./html.js";
-import { comparePrices } from "./comparison.js";
+import {
+  COMPARISON_STORES,
+  DEFAULT_ENABLED_STORES,
+  comparePrices,
+  normalizeEnabledStoreKeys,
+} from "./comparison.js";
 
 const MAX_USERS = 3;
 const SESSION_DAYS = 45;
 const CATEGORIES = [
   "Carne",
-  "Lacteos",
+  "Lácteos",
   "Fruta",
   "Verdura",
-  "Charcuteria",
+  "Charcutería",
   "Higiene",
-  "Panaderia",
+  "Panadería",
   "Bebidas",
-  "Bebe",
+  "Bebé",
   "Limpieza",
   "Cereales y pasta",
   "Platos y conservas",
@@ -25,6 +30,13 @@ const CATEGORIES = [
   "Hogar",
   "Otros",
 ];
+
+const CATEGORY_ALIASES = {
+  Lacteos: "Lácteos",
+  Charcuteria: "Charcutería",
+  Panaderia: "Panadería",
+  Bebe: "Bebé",
+};
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -134,6 +146,9 @@ async function ensureSchema(env) {
       "CREATE TABLE IF NOT EXISTS category_rules (user_id TEXT NOT NULL, normalized_name TEXT NOT NULL, display_name TEXT NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, normalized_name))",
     ),
     d1.prepare(
+      "CREATE TABLE IF NOT EXISTS user_settings (user_id TEXT PRIMARY KEY, enabled_stores TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)",
+    ),
+    d1.prepare(
       "CREATE TABLE IF NOT EXISTS shopping_plan_items (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, query TEXT NOT NULL, store_key TEXT NOT NULL, store_name TEXT NOT NULL, product_id TEXT NOT NULL, product_name TEXT NOT NULL, brand TEXT NOT NULL DEFAULT '', price REAL NOT NULL, normalized_price REAL NOT NULL DEFAULT 0, normalized_unit TEXT NOT NULL DEFAULT '', package_amount REAL NOT NULL DEFAULT 0, package_label TEXT NOT NULL DEFAULT '', image_url TEXT NOT NULL DEFAULT '', product_url TEXT NOT NULL DEFAULT '', reference_price REAL NOT NULL DEFAULT 0, checked_at TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (user_id, store_key, product_id))",
     ),
     d1.prepare("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id)"),
@@ -201,10 +216,10 @@ async function register(request, env) {
     return json({ error: "Usuario no valido" }, 400);
   }
   if (password.length < 6) {
-    return json({ error: "Contrasena demasiado corta" }, 400);
+    return json({ error: "Contraseña demasiado corta" }, 400);
   }
   if (env.INVITE_CODE && inviteCode !== env.INVITE_CODE) {
-    return json({ error: "Codigo de invitacion incorrecto" }, 403);
+    return json({ error: "Código de invitación incorrecto" }, 403);
   }
   const count = await getUserCount(env);
   if (count >= MAX_USERS) {
@@ -235,10 +250,10 @@ async function login(request, env) {
   const row = await env.DB.prepare("SELECT id, username, role, password_hash, salt FROM users WHERE username = ?")
     .bind(username)
     .first();
-  if (!row) return json({ error: "Usuario o contrasena incorrectos" }, 401);
+  if (!row) return json({ error: "Usuario o contraseña incorrectos" }, 401);
   const passwordHash = await hashPassword(password, row.salt);
   if (passwordHash !== row.password_hash) {
-    return json({ error: "Usuario o contrasena incorrectos" }, 401);
+    return json({ error: "Usuario o contraseña incorrectos" }, 401);
   }
   const cookie = await createSession(env, row.id, request);
   return json({ ok: true, user: { id: row.id, username: row.username, role: row.role } }, 200, {
@@ -255,6 +270,11 @@ async function logout(request, env) {
   return json({ ok: true }, 200, { "set-cookie": clearSessionCookie(request) });
 }
 
+function canonicalCategory(category) {
+  const value = String(category || "").trim();
+  return CATEGORY_ALIASES[value] || (CATEGORIES.includes(value) ? value : "Otros");
+}
+
 function summarize(items, receipts, month) {
   const categoryMap = new Map();
   const productMap = new Map();
@@ -262,12 +282,13 @@ function summarize(items, receipts, month) {
   let categoryTotal = 0;
   for (const item of items) {
     const amount = Number(item.line_total || 0);
+    const category = canonicalCategory(item.category);
     categoryTotal += amount;
-    categoryMap.set(item.category, (categoryMap.get(item.category) || 0) + amount);
+    categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
     const productKey = item.normalized_name || normalizeProductName(item.name);
     const current = productMap.get(productKey) || {
       name: item.name,
-      category: item.category,
+      category,
       total: 0,
       count: 0,
       lastPrice: 0,
@@ -328,6 +349,7 @@ async function dashboard(request, env) {
     .all();
   const userCount = await getUserCount(env);
   const trend = trendResult.results || [];
+  const rules = (rulesResult.results || []).map((rule) => ({ ...rule, category: canonicalCategory(rule.category) }));
   const annualTotal = trend.reduce((sum, row) => sum + Number(row.total || 0), 0);
   const annualReceipts = trend.reduce((sum, row) => sum + Number(row.receipts || 0), 0);
   return json({
@@ -345,7 +367,7 @@ async function dashboard(request, env) {
       receipts: annualReceipts,
       averageTicket: annualReceipts ? annualTotal / annualReceipts : 0,
     },
-    rules: rulesResult.results || [],
+    rules,
     summary: summarize(itemsResult.results || [], receiptsResult.results || [], bounds.clean),
   });
 }
@@ -359,7 +381,7 @@ function cleanDate(date) {
 }
 
 function cleanCategory(category) {
-  return CATEGORIES.includes(category) ? category : "Otros";
+  return canonicalCategory(category);
 }
 
 async function saveReceipt(request, env) {
@@ -367,7 +389,7 @@ async function saveReceipt(request, env) {
   if (auth.response) return auth.response;
   const body = await readBody(request);
   const items = Array.isArray(body.items) ? body.items : [];
-  if (!items.length) return json({ error: "El ticket no tiene lineas" }, 400);
+  if (!items.length) return json({ error: "El ticket no tiene líneas" }, 400);
   const receiptId = crypto.randomUUID();
   const createdAt = nowIso();
   const cleanedItems = items
@@ -444,6 +466,42 @@ async function deleteReceipt(request, env, id) {
   return json({ ok: true });
 }
 
+async function readUserEnabledStores(env, userId) {
+  const row = await env.DB.prepare("SELECT enabled_stores FROM user_settings WHERE user_id = ?")
+    .bind(userId)
+    .first();
+  return normalizeEnabledStoreKeys(row && row.enabled_stores ? row.enabled_stores.split(",") : DEFAULT_ENABLED_STORES);
+}
+
+async function getSettings(request, env) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  return json({
+    ok: true,
+    stores: COMPARISON_STORES,
+    enabledStores: await readUserEnabledStores(env, auth.user.id),
+  });
+}
+
+async function saveSettings(request, env) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  const body = await readBody(request);
+  if (!Array.isArray(body.enabledStores)) return json({ error: "Selección no válida" }, 400);
+  const validStoreKeys = new Set(COMPARISON_STORES.map((store) => store.key));
+  const selected = body.enabledStores
+    .map((key) => String(key || "").trim().toLowerCase())
+    .filter((key) => validStoreKeys.has(key));
+  if (!selected.length) return json({ error: "Selecciona al menos un supermercado" }, 400);
+  const enabledStores = normalizeEnabledStoreKeys(selected);
+  await env.DB.prepare(
+    "INSERT INTO user_settings (user_id, enabled_stores, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET enabled_stores = excluded.enabled_stores, updated_at = excluded.updated_at",
+  )
+    .bind(auth.user.id, enabledStores.join(","), nowIso())
+    .run();
+  return json({ ok: true, stores: COMPARISON_STORES, enabledStores });
+}
+
 async function compareSearch(request, env) {
   const auth = await requireUser(request, env);
   if (auth.response) return auth.response;
@@ -451,7 +509,8 @@ async function compareSearch(request, env) {
   const query = String(url.searchParams.get("q") || "").trim();
   const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") || 6), 8));
   try {
-    return json({ ok: true, ...(await comparePrices(query, { limit })) });
+    const enabledStores = await readUserEnabledStores(env, auth.user.id);
+    return json({ ok: true, ...(await comparePrices(query, { limit, enabledStores })) });
   } catch (error) {
     return json({ error: String(error && error.message || "No se pudo comparar") }, 400);
   }
@@ -496,13 +555,15 @@ function safeProductUrl(value) {
     const allowed = [
       "tienda.mercadona.es",
       "prod-mercadona.imgix.net",
-      "www.lidl.es",
       "www.dia.es",
       "www.carrefour.es",
       "static.carrefour.es",
       "www.compraonline.alcampo.es",
       "www.ahorramas.com",
       "www.aldi.es",
+      "www.hipercor.es",
+      "www.elcorteingles.es",
+      "sgfm.elcorteingles.es",
       "s7g10.scene7.com",
     ];
     return url.protocol === "https:" && allowed.includes(url.hostname) ? url.toString().slice(0, 700) : "";
@@ -518,12 +579,12 @@ async function saveShoppingPlanItem(request, env) {
   const offer = body.offer && typeof body.offer === "object" ? body.offer : {};
   const stores = {
     mercadona: "Mercadona",
-    lidl: "Lidl",
     dia: "DIA",
     carrefour: "Carrefour",
     alcampo: "Alcampo",
     ahorramas: "Ahorramas",
     aldi: "Aldi",
+    hipercor: "Hipercor",
   };
   const storeKey = String(offer.storeKey || "").toLowerCase();
   const storeName = stores[storeKey];
@@ -597,6 +658,8 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/dashboard") return dashboard(request, env);
     if (request.method === "GET" && url.pathname === "/api/compare") return compareSearch(request, env);
+    if (request.method === "GET" && url.pathname === "/api/settings") return getSettings(request, env);
+    if (request.method === "PUT" && url.pathname === "/api/settings") return saveSettings(request, env);
     if (request.method === "GET" && url.pathname === "/api/shopping-plan") return getShoppingPlan(request, env);
     if (request.method === "POST" && url.pathname === "/api/shopping-plan") return saveShoppingPlanItem(request, env);
     if (request.method === "DELETE" && url.pathname === "/api/shopping-plan") return clearShoppingPlan(request, env);

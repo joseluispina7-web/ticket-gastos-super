@@ -13,19 +13,22 @@ const ALDI_INDEX = "an_prd_es_es_pen_products2";
 
 const STORE_META = [
   { key: "mercadona", label: "Mercadona", mode: "Online", homeUrl: "https://tienda.mercadona.es" },
-  { key: "lidl", label: "Lidl", mode: "Tienda", homeUrl: "https://www.lidl.es" },
   { key: "dia", label: "DIA", mode: "Online", homeUrl: "https://www.dia.es" },
   { key: "carrefour", label: "Carrefour", mode: "Online", homeUrl: "https://www.carrefour.es/supermercado" },
   { key: "alcampo", label: "Alcampo", mode: "Online", homeUrl: "https://www.compraonline.alcampo.es" },
   { key: "ahorramas", label: "Ahorramas", mode: "Online", homeUrl: "https://www.ahorramas.com" },
   { key: "aldi", label: "Aldi", mode: "Tienda", homeUrl: "https://www.aldi.es" },
+  { key: "hipercor", label: "Hipercor", mode: "Online", homeUrl: "https://www.hipercor.es/supermercado" },
 ];
 
 const UPCOMING_STORES = [
-  { key: "hipercor", label: "Hipercor", reason: "pendiente de adaptar el catalogo de El Corte Ingles/Supercor" },
-  { key: "supercor", label: "Supercor", reason: "pendiente de adaptar el catalogo de El Corte Ingles/Supercor" },
+  { key: "supercor", label: "Supercor", reason: "pendiente de adaptar el catálogo de El Corte Inglés/Supercor" },
   { key: "eroski", label: "Eroski", reason: "pendiente de fixture y adaptador regional" },
 ];
+
+export const COMPARISON_STORES = STORE_META.map(({ key, label, mode }) => ({ key, label, mode }));
+export const DEFAULT_ENABLED_STORES = COMPARISON_STORES.map((store) => store.key);
+const STORE_KEYS = new Set(DEFAULT_ENABLED_STORES);
 
 const STOP_WORDS = new Set(["a", "al", "de", "del", "el", "en", "la", "las", "los", "para", "por", "un", "una", "y"]);
 const PACKAGE_UNIT_PATTERN = "(?:kg|kilos?|kilogramos?|g|gr|gramos?|l|litros?|ml|mililitros?|cl|centilitros?|uds?|unidades?|unidad)";
@@ -68,6 +71,14 @@ function removePackageNoise(value) {
 
 function storeMeta(key) {
   return STORE_META.find((store) => store.key === key);
+}
+
+export function normalizeEnabledStoreKeys(keys) {
+  const raw = Array.isArray(keys) ? keys : String(keys || "").split(",");
+  const selected = [...new Set(raw
+    .map((key) => String(key || "").trim().toLowerCase())
+    .filter((key) => STORE_KEYS.has(key)))];
+  return selected.length ? selected : DEFAULT_ENABLED_STORES;
 }
 
 function conceptTokens(value) {
@@ -285,31 +296,6 @@ export function mapMercadonaHit(hit) {
   });
 }
 
-export function mapLidlItem(item) {
-  const store = storeMeta("lidl");
-  const data = item && item.gridbox ? item.gridbox.data || {} : {};
-  const price = data.price || {};
-  const description = stripHtml(data.keyfacts && data.keyfacts.description);
-  const packageLabel = [price.packaging && price.packaging.text, description].filter(Boolean).join(" · ");
-  const base = parseBasePrice(price.basePrice && price.basePrice.text);
-  const rendered = numberFrom(data.renderedTs);
-  return offerShape(store, {
-    id: item.code || data.erpNumber || data.itemId,
-    name: data.fullTitle || data.title,
-    brand: data.brand && data.brand.name,
-    category: data.category,
-    price: price.price,
-    normalizedPrice: base && base.value,
-    unit: base && base.unit,
-    packageLabel,
-    available: !data.preventSelling,
-    mode: data.online ? "Online" : "Tienda",
-    imageUrl: data.image || (data.image_V1 && data.image_V1.image),
-    productUrl: data.canonicalUrl ? `https://www.lidl.es${data.canonicalUrl}` : "https://www.lidl.es",
-    sourceUpdatedAt: rendered ? new Date(rendered * 1000).toISOString() : null,
-  });
-}
-
 export function mapDiaItem(item) {
   const store = storeMeta("dia");
   const prices = item.prices || {};
@@ -369,6 +355,25 @@ export function mapCarrefourItem(item) {
     available: item.active_food !== false,
     imageUrl: item.image_for_play_service || (item.image_path && item.image_path.food),
     productUrl: productPath ? `https://www.carrefour.es${productPath}` : store.homeUrl,
+  });
+}
+
+export function mapHipercorProduct(product) {
+  const store = storeMeta("hipercor");
+  const offer = Array.isArray(product.offers) ? product.offers[0] : product.offers || {};
+  const brand = typeof product.brand === "string" ? product.brand : product.brand && product.brand.name;
+  const image = Array.isArray(product.image) ? product.image[0] : product.image;
+  const productUrl = product.url ? new URL(product.url, store.homeUrl).toString() : store.homeUrl;
+  return offerShape(store, {
+    id: product.sku || product.productID || product.gtin13 || productUrl || product.name,
+    name: product.name,
+    brand,
+    category: product.category,
+    price: offer.price || offer.lowPrice,
+    packageLabel: (parsePackageMetric(product.name) || {}).label,
+    available: offer.availability ? !/OutOfStock/i.test(String(offer.availability)) : true,
+    imageUrl: image,
+    productUrl,
   });
 }
 
@@ -502,13 +507,23 @@ async function searchMercadona(query, limit, fetcher) {
   return (data.hits || []).map(mapMercadonaHit);
 }
 
-async function searchLidl(query, limit, fetcher) {
-  const params = new URLSearchParams({ q: query, assortment: "ES", locale: "es_ES", version: "v2.0.0", store: "1" });
-  const response = await fetchWithTimeout(fetcher, `https://www.lidl.es/q/api/search?${params}`, {
-    headers: { accept: "*/*", "user-agent": USER_AGENT },
-  });
-  const data = await response.json();
-  return (data.items || []).slice(0, Math.max(limit * 4, 24)).map(mapLidlItem);
+export function parseHipercorHtml(html) {
+  const source = String(html || "");
+  const products = [];
+  for (const match of source.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    let json;
+    try {
+      json = JSON.parse(stripHtml(match[1]));
+    } catch (_error) {
+      continue;
+    }
+    const graph = Array.isArray(json && json["@graph"]) ? json["@graph"] : [json];
+    for (const entry of graph.flat()) {
+      if (!entry || entry["@type"] !== "Product") continue;
+      products.push(mapHipercorProduct(entry));
+    }
+  }
+  return products;
 }
 
 async function searchAldi(query, limit, fetcher) {
@@ -560,7 +575,7 @@ async function searchAlcampo(query, _limit, fetcher) {
     },
   });
   const html = await response.text();
-  if (!html.includes('"productEntities"')) throw new Error("El catalogo de Alcampo ha pedido verificacion del navegador");
+  if (!html.includes('"productEntities"')) throw new Error("El catálogo de Alcampo ha pedido verificación del navegador");
   return parseAlcampoHtml(html);
 }
 
@@ -573,6 +588,19 @@ async function searchAhorramas(query, _limit, fetcher) {
     },
   });
   return parseAhorramasHtml(await response.text());
+}
+
+async function searchHipercor(query, _limit, fetcher) {
+  const response = await fetchWithTimeout(fetcher, `https://www.hipercor.es/supermercado/buscar/?term=${encodeURIComponent(query)}`, {
+    headers: {
+      accept: "text/html,application/xhtml+xml",
+      "accept-language": "es-ES,es;q=0.9",
+      "user-agent": BROWSER_USER_AGENT,
+    },
+  });
+  const offers = parseHipercorHtml(await response.text());
+  if (!offers.length) throw new Error("Hipercor no ha devuelto productos en formato legible");
+  return offers;
 }
 
 async function searchExpanded(search, query, limit, fetcher) {
@@ -641,21 +669,24 @@ export async function comparePrices(query, options = {}) {
   if (cleanQuery.length < 2) throw new Error("Escribe al menos dos caracteres");
   const limit = Math.max(1, Math.min(Number(options.limit || 6), 8));
   const fetcher = options.fetcher || fetch;
-  const cacheKey = `${cleanText(cleanQuery)}:${limit}`;
+  const enabledStores = normalizeEnabledStoreKeys(options.enabledStores);
+  const cacheKey = `${cleanText(cleanQuery)}:${limit}:${enabledStores.join(",")}`;
   const cached = options.cache !== false && memoryCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return { ...cached.value, cached: true };
 
-  const searches = [
-    searchMercadona,
-    (query, size, source) => searchExpanded(searchLidl, query, size, source),
-    (query, size, source) => searchExpanded(searchDia, query, size, source),
-    searchCarrefour,
-    searchAlcampo,
-    (query, size, source) => searchExpanded(searchAhorramas, query, size, source),
-    (query, size, source) => searchExpanded(searchAldi, query, size, source),
-  ];
+  const adapters = {
+    mercadona: searchMercadona,
+    dia: (query, size, source) => searchExpanded(searchDia, query, size, source),
+    carrefour: searchCarrefour,
+    alcampo: searchAlcampo,
+    ahorramas: (query, size, source) => searchExpanded(searchAhorramas, query, size, source),
+    aldi: (query, size, source) => searchExpanded(searchAldi, query, size, source),
+    hipercor: searchHipercor,
+  };
+  const activeMeta = STORE_META.filter((store) => enabledStores.includes(store.key));
+  const searches = activeMeta.map((store) => adapters[store.key]);
   const results = await Promise.allSettled(searches.map((search) => search(cleanQuery, limit, fetcher)));
-  const stores = STORE_META.map((meta, index) => {
+  const stores = activeMeta.map((meta, index) => {
     const result = results[index];
     if (result.status === "rejected") {
       return { ...meta, status: "unavailable", offers: [], error: String(result.reason && result.reason.message || result.reason || "No disponible").slice(0, 120) };

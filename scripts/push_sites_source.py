@@ -1,14 +1,9 @@
 import os
 import shutil
+import stat
+import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "pydeps"))
-
-from dulwich import porcelain
-from dulwich.client import HttpGitClient
-from dulwich.repo import Repo
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,10 +12,12 @@ SOURCE = ROOT / ".site-source"
 
 TRACKED = [
     ".github/workflows/ci.yml",
+    ".github/workflows/deploy-cloudflare.yml",
     ".openai/hosting.json",
     ".env.example",
     "AGENTS.md",
     "THIRD_PARTY_NOTICES.md",
+    "cloudflare/wrangler.template.jsonc",
     "dist/.openai/hosting.json",
     "dist/server/comparison.js",
     "dist/server/html.js",
@@ -45,7 +42,11 @@ TRACKED = [
 
 def copy_into_source() -> None:
     if SOURCE.exists():
-        shutil.rmtree(SOURCE)
+        def make_writable(function, path, _exc_info):
+            os.chmod(path, stat.S_IWRITE)
+            function(path)
+
+        shutil.rmtree(SOURCE, onerror=make_writable)
     SOURCE.mkdir()
     for relative in TRACKED:
         src = ROOT / relative
@@ -54,29 +55,31 @@ def copy_into_source() -> None:
         shutil.copy2(src, dst)
 
 
+def run_git(args: list[str], token: str | None = None) -> str:
+    command = ["git", "-C", str(SOURCE)]
+    if token:
+        command.extend(["-c", f"http.extraHeader=Authorization: Bearer {token}"])
+    command.extend(args)
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    result = subprocess.run(command, text=True, capture_output=True, env=env, check=False)
+    if result.returncode != 0:
+        message = result.stderr or result.stdout or "git command failed"
+        if token:
+            message = message.replace(token, "<redacted>")
+        raise SystemExit(message.strip())
+    return result.stdout.strip()
+
+
 def push_source(remote_url: str, token: str) -> str:
     copy_into_source()
-    porcelain.init(str(SOURCE), bare=False)
-    repo = Repo(str(SOURCE))
-    porcelain.add(repo, paths=[path.encode("utf-8") for path in TRACKED])
-    commit_id = porcelain.commit(
-        repo,
-        message=b"Build ticket grocery dashboard",
-        author=b"Codex <codex@example.com>",
-        committer=b"Codex <codex@example.com>",
-    )
-    repo.refs[b"refs/heads/main"] = commit_id
-    parsed = urlparse(remote_url)
-    client = HttpGitClient(f"{parsed.scheme}://{parsed.netloc}", username="x-access-token", password=token)
-
-    def update_refs(_refs):
-        return {b"refs/heads/main": commit_id}
-
-    def generate_pack_data(have, want, ofs_delta=False, progress=None):
-        return repo.generate_pack_data(set(have), set(want), ofs_delta=ofs_delta, progress=progress)
-
-    client.send_pack(parsed.path, update_refs, generate_pack_data=generate_pack_data, progress=lambda _data: None)
-    return commit_id.decode("ascii")
+    run_git(["init", "-b", "main"])
+    run_git(["config", "user.email", "codex@example.com"])
+    run_git(["config", "user.name", "Codex"])
+    run_git(["add", "-f", "--", *TRACKED])
+    run_git(["commit", "-m", "Build ticket grocery dashboard"])
+    commit_id = run_git(["rev-parse", "HEAD"])
+    run_git(["push", "--force", remote_url, "HEAD:refs/heads/main"], token=token)
+    return commit_id
 
 
 if __name__ == "__main__":
