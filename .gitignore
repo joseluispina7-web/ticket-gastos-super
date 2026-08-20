@@ -5,3 +5,4 @@ site.tar.gz
 !.env.example
 node_modules/
 dist/
+outputs/
