@@ -658,6 +658,7 @@ async function browserActionText(result) {
 async function searchHipercor(query, _limit, fetcher, browser) {
   const encodedQuery = encodeURIComponent(query);
   const directUrl = `https://www.hipercor.es/supermercado/buscar/?question=${encodedQuery}&catalog=supermercado&stype=text_box`;
+  let browserIssue = "binding no disponible";
   try {
     const response = await fetchWithTimeout(fetcher, directUrl, {
       headers: {
@@ -678,18 +679,24 @@ async function searchHipercor(query, _limit, fetcher, browser) {
       const markdown = await browserActionText(await browser.quickAction("markdown", { url: directUrl }));
       const offers = parseHipercorMarkdown(markdown);
       if (offers.length) return offers;
-    } catch (_error) {
-      // Keep the public text-reader fallback available if Browser Run is temporarily exhausted.
+      browserIssue = "respuesta sin productos analizables";
+    } catch (error) {
+      browserIssue = String(error && error.message || error || "error desconocido").slice(0, 80);
     }
   }
 
   const readerUrl = `https://r.jina.ai/http://www.hipercor.es/supermercado/buscar/?question=${encodedQuery}%26catalog=supermercado%26stype=text_box`;
-  const response = await fetchWithTimeout(fetcher, readerUrl, {
-    headers: { accept: "text/markdown,text/plain;q=0.9", "user-agent": USER_AGENT },
-  }, READER_TIMEOUT_MS);
-  const offers = parseHipercorMarkdown(await response.text());
-  if (!offers.length) throw new Error("Hipercor no ha devuelto productos en formato legible");
-  return offers;
+  try {
+    const response = await fetchWithTimeout(fetcher, readerUrl, {
+      headers: { accept: "text/markdown,text/plain;q=0.9", "user-agent": USER_AGENT },
+    }, READER_TIMEOUT_MS);
+    const offers = parseHipercorMarkdown(await response.text());
+    if (!offers.length) throw new Error("respuesta sin productos analizables");
+    return offers;
+  } catch (error) {
+    const readerIssue = String(error && error.message || error || "error desconocido").slice(0, 60);
+    throw new Error(`Browser Run: ${browserIssue}; lector: ${readerIssue}`);
+  }
 }
 
 async function searchExpanded(search, query, limit, fetcher) {
