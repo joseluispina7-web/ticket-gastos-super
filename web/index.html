@@ -1697,6 +1697,7 @@
           return {
             name: cleanDisplayProductName(item.name),
             category: canonicalCategory(item.category),
+            categoryEdited: false,
             quantity: Number(item.quantity || 1),
             unitPrice: Number(item.unit_price || 0),
             lineTotal: Number(item.line_total || 0)
@@ -1753,7 +1754,7 @@
         if (!parsed.items.length) {
           throw new Error("He leído el archivo, pero no he podido separar los productos. Puedes corregir el texto detectado y volver a analizarlo.");
         }
-        prepareReview(parsed);
+        await prepareReview(parsed);
       } catch (error) {
         setStatus(error.message || "No he podido leer el ticket.");
       } finally {
@@ -1984,7 +1985,16 @@
       var normalized = normalizeProduct(name);
       var rules = (state.dashboard && state.dashboard.rules) || [];
       for (var i = 0; i < rules.length; i += 1) {
-        if (rules[i].normalized_name === normalized) return canonicalCategory(rules[i].category);
+        if (rules[i].normalized_name === normalized && canonicalCategory(rules[i].category) !== "Otros") {
+          return canonicalCategory(rules[i].category);
+        }
+      }
+      var sharedRules = (state.dashboard && state.dashboard.classificationRules) || [];
+      for (var s = 0; s < sharedRules.length; s += 1) {
+        var sharedTerms = sharedRules[s].terms || [];
+        for (var t = 0; t < sharedTerms.length; t += 1) {
+          if (categoryTermMatches(normalized, sharedTerms[t])) return canonicalCategory(sharedRules[s].category);
+        }
       }
       var dictionaries = PRIORITY_KEYWORDS.concat(KEYWORDS);
       for (var k = 0; k < dictionaries.length; k += 1) {
@@ -1996,6 +2006,22 @@
         }
       }
       return "Otros";
+    }
+
+    function categoryTermMatches(normalized, term) {
+      var isPrefix = /\*$/.test(term);
+      var cleanTerm = normalizeProduct(String(term || "").replace(/\*+$/, ""));
+      if (!cleanTerm) return false;
+      if (!isPrefix) return (" " + normalized + " ").indexOf(" " + cleanTerm + " ") !== -1;
+      var termWords = cleanTerm.split(" ");
+      var prefix = termWords.pop();
+      var words = normalized.split(" ");
+      if (!termWords.length) return words.some(function(word) { return word.indexOf(prefix) === 0; });
+      for (var i = 0; i <= words.length - termWords.length - 1; i += 1) {
+        if (words.slice(i, i + termWords.length).join(" ") === termWords.join(" ") &&
+            words[i + termWords.length].indexOf(prefix) === 0) return true;
+      }
+      return false;
     }
 
     function isTotalLine(line) {
@@ -2179,9 +2205,12 @@
       };
     }
 
-    function prepareReview(parsed) {
+    async function prepareReview(parsed) {
       parsed = parsed || parseReceiptText(els.rawText.value);
       if (!parsed.items.length) return;
+      parsed.items = parsed.items.map(function(item) {
+        return Object.assign({ categoryEdited: false }, item);
+      });
       state.review = parsed;
       els.reviewStore.value = parsed.store;
       els.reviewDate.value = parsed.date;
@@ -2189,6 +2218,44 @@
       els.reviewPanel.hidden = false;
       renderReviewRows();
       setStatus(parsed.items.length + " productos detectados. Revisa los datos antes de guardar.");
+      await refineReviewCategories();
+    }
+
+    async function refineReviewCategories() {
+      if (!state.review || state.editingReceiptId) return;
+      var pending = state.review.items.map(function(item, index) {
+        return { item: item, index: index };
+      }).filter(function(entry) {
+        return !entry.item.categoryEdited && canonicalCategory(entry.item.category) === "Otros" && String(entry.item.name || "").trim();
+      });
+      if (!pending.length) return;
+      setStatus("Completando categorías con el catálogo de " + (els.reviewStore.value || state.review.store) + "...");
+      try {
+        var data = await api("/api/classify-products", {
+          method: "POST",
+          body: JSON.stringify({
+            store: els.reviewStore.value || state.review.store,
+            items: pending.map(function(entry) { return { name: entry.item.name }; })
+          })
+        });
+        var changed = 0;
+        (data.items || []).forEach(function(suggestion) {
+          var pendingEntry = pending[Number(suggestion.index)];
+          if (!pendingEntry || pendingEntry.item.categoryEdited || canonicalCategory(pendingEntry.item.category) !== "Otros") return;
+          var category = canonicalCategory(suggestion.category);
+          if (category === "Otros") return;
+          pendingEntry.item.category = category;
+          pendingEntry.item.categorySource = suggestion.source || "catálogo";
+          changed += 1;
+        });
+        if (changed) renderReviewRows();
+        var unresolved = state.review.items.filter(function(item) { return canonicalCategory(item.category) === "Otros"; }).length;
+        setStatus(state.review.items.length + " productos detectados. " +
+          (changed ? changed + " categorías completadas con el catálogo. " : "") +
+          (unresolved ? unresolved + " quedan en Otros para revisar." : "Todas las categorías están asignadas."));
+      } catch (_error) {
+        setStatus(state.review.items.length + " productos detectados. El catálogo no ha respondido; puedes revisar las categorías antes de guardar.");
+      }
     }
 
     function categoryOptions(selected) {
@@ -2244,8 +2311,10 @@
       var value = target.value;
       if (field === "quantity" || field === "lineTotal") value = Number(value || 0);
       state.review.items[index][field] = value;
+      if (field === "category") state.review.items[index].categoryEdited = true;
       if (field === "name" && state.review.items[index].category === "Otros") {
         state.review.items[index].category = guessCategory(value);
+        state.review.items[index].categoryEdited = false;
         renderReviewRows();
       }
       updateReviewTotal();
@@ -2351,7 +2420,7 @@
         els.reviewDate.value = state.review.date;
         els.reviewPanel.hidden = false;
       }
-      state.review.items.push({ name: "", category: "Otros", quantity: 1, unitPrice: 0, lineTotal: 0 });
+      state.review.items.push({ name: "", category: "Otros", categoryEdited: false, quantity: 1, unitPrice: 0, lineTotal: 0 });
       renderReviewRows();
     });
     els.saveReceiptBtn.addEventListener("click", saveReceipt);
@@ -2366,6 +2435,12 @@
       if (remove == null || !state.review) return;
       state.review.items.splice(Number(remove), 1);
       renderReviewRows();
+    });
+    els.reviewStore.addEventListener("change", function() {
+      if (state.review) {
+        state.review.store = els.reviewStore.value;
+        refineReviewCategories();
+      }
     });
     els.receiptList.addEventListener("click", function(event) {
       var editButton = event.target.closest("[data-edit]");

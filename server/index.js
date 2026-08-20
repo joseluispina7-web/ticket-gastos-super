@@ -4,40 +4,19 @@ import {
   DEFAULT_ENABLED_STORES,
   comparePrices,
   normalizeEnabledStoreKeys,
+  searchStoreProducts,
 } from "./comparison.js";
+import {
+  CATEGORIES,
+  PRODUCT_CATEGORY_RULES,
+  canonicalCategory,
+  classifyCatalogProduct,
+  classifyProductName,
+  storeKeyFromName,
+} from "./categories.js";
 
 const MAX_USERS = 3;
 const SESSION_DAYS = 45;
-const CATEGORIES = [
-  "Carne",
-  "Lácteos",
-  "Fruta",
-  "Verdura",
-  "Charcutería",
-  "Higiene",
-  "Panadería",
-  "Bebidas",
-  "Bebé",
-  "Limpieza",
-  "Cereales y pasta",
-  "Platos y conservas",
-  "Salsas",
-  "Pescado",
-  "Dulces y snacks",
-  "Frutos secos",
-  "Huevos",
-  "Congelados",
-  "Mascotas",
-  "Hogar",
-  "Otros",
-];
-
-const CATEGORY_ALIASES = {
-  Lacteos: "Lácteos",
-  Charcuteria: "Charcutería",
-  Panaderia: "Panadería",
-  Bebe: "Bebé",
-};
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -156,6 +135,12 @@ async function ensureSchema(env) {
       "CREATE TABLE IF NOT EXISTS category_rules (user_id TEXT NOT NULL, normalized_name TEXT NOT NULL, display_name TEXT NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, normalized_name))",
     ),
     d1.prepare(
+      "CREATE TABLE IF NOT EXISTS product_category_cache (store_key TEXT NOT NULL, normalized_name TEXT NOT NULL, display_name TEXT NOT NULL, category TEXT NOT NULL, source_category TEXT NOT NULL DEFAULT '', matched_name TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL, PRIMARY KEY (store_key, normalized_name))",
+    ),
+    d1.prepare(
+      "CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
+    ),
+    d1.prepare(
       "CREATE TABLE IF NOT EXISTS user_settings (user_id TEXT PRIMARY KEY, enabled_stores TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)",
     ),
     d1.prepare(
@@ -168,6 +153,51 @@ async function ensureSchema(env) {
     d1.prepare("CREATE INDEX IF NOT EXISTS idx_plan_user_store ON shopping_plan_items (user_id, store_key)"),
     d1.prepare("PRAGMA optimize"),
   ]);
+
+  const categoryMigration = "2026-08-20-category-rules-v1";
+  const applied = await d1.prepare("SELECT name FROM app_migrations WHERE name = ?").bind(categoryMigration).first();
+  if (!applied) {
+    await d1.batch([
+      d1.prepare(
+        `UPDATE receipt_items
+         SET category = CASE
+           WHEN normalized_name LIKE '%albondig%' THEN 'Carne'
+           WHEN normalized_name LIKE '%costill%' THEN 'Carne'
+           WHEN normalized_name LIKE '%filete pechuga%' THEN 'Carne'
+           WHEN normalized_name LIKE '%cuarto trasero%' THEN 'Carne'
+           WHEN normalized_name LIKE '%filete melva%' OR normalized_name LIKE '%pota%' THEN 'Pescado'
+           WHEN normalized_name LIKE '%burrata%' THEN 'Lácteos'
+           WHEN normalized_name LIKE '%champinon%' THEN 'Verdura'
+           WHEN normalized_name LIKE '%crema de calabaza%' THEN 'Platos y conservas'
+           WHEN normalized_name LIKE '%discos desm%' OR normalized_name LIKE '%laca%' THEN 'Higiene'
+           WHEN normalized_name LIKE '%mayonesa%' OR normalized_name LIKE '%salsa %' THEN 'Salsas'
+           WHEN normalized_name LIKE '%muesli%' THEN 'Cereales y pasta'
+           WHEN normalized_name LIKE '%paraguayo%' OR normalized_name LIKE '%pina%' THEN 'Fruta'
+           WHEN normalized_name LIKE '%proteina beber%' THEN 'Bebidas'
+           ELSE category
+         END
+         WHERE normalized_name LIKE '%albondig%'
+            OR normalized_name LIKE '%costill%'
+            OR normalized_name LIKE '%filete pechuga%'
+            OR normalized_name LIKE '%cuarto trasero%'
+            OR normalized_name LIKE '%filete melva%'
+            OR normalized_name LIKE '%pota%'
+            OR normalized_name LIKE '%burrata%'
+            OR normalized_name LIKE '%champinon%'
+            OR normalized_name LIKE '%crema de calabaza%'
+            OR normalized_name LIKE '%discos desm%'
+            OR normalized_name LIKE '%laca%'
+            OR normalized_name LIKE '%mayonesa%'
+            OR normalized_name LIKE '%salsa %'
+            OR normalized_name LIKE '%muesli%'
+            OR normalized_name LIKE '%paraguayo%'
+            OR normalized_name LIKE '%pina%'
+            OR normalized_name LIKE '%proteina beber%'`,
+      ),
+      d1.prepare("DELETE FROM category_rules"),
+      d1.prepare("INSERT OR IGNORE INTO app_migrations (name, applied_at) VALUES (?, ?)").bind(categoryMigration, nowIso()),
+    ]);
+  }
 }
 
 async function readBody(request) {
@@ -283,11 +313,6 @@ async function logout(request, env) {
   return json({ ok: true }, 200, { "set-cookie": clearSessionCookie(request) });
 }
 
-function canonicalCategory(category) {
-  const value = String(category || "").trim();
-  return CATEGORY_ALIASES[value] || (CATEGORIES.includes(value) ? value : "Otros");
-}
-
 function summarize(items, receipts, month) {
   const categoryMap = new Map();
   const productMap = new Map();
@@ -378,6 +403,7 @@ async function dashboard(request, env) {
     userCount,
     maxUsers: MAX_USERS,
     categories: CATEGORIES,
+    classificationRules: PRODUCT_CATEGORY_RULES,
     receipts: receiptsResult.results || [],
     items,
     trend,
@@ -414,11 +440,14 @@ function cleanReceiptPayload(body) {
       const rawUnitPrice = item.unitPrice !== undefined ? item.unitPrice : item.unit_price;
       const lineTotal = Math.max(Number(rawLineTotal !== undefined ? rawLineTotal : 0), 0);
       const unitPrice = Math.max(Number(rawUnitPrice !== undefined ? rawUnitPrice : lineTotal / quantity), 0);
+      const selectedCategory = cleanCategory(item.category);
+      const inferred = classifyProductName(name);
       return {
         id: crypto.randomUUID(),
         name,
         normalizedName: normalizeProductName(name),
-        category: cleanCategory(item.category),
+        category: item.categoryEdited || inferred.category === "Otros" ? selectedCategory : inferred.category,
+        categoryEdited: Boolean(item.categoryEdited),
         quantity,
         unitPrice,
         lineTotal,
@@ -436,6 +465,77 @@ function cleanReceiptPayload(body) {
       ? String(body.rawText || "").slice(0, 50000)
       : null,
   };
+}
+
+async function classifyProducts(request, env) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  const body = await readBody(request);
+  const storeKey = storeKeyFromName(body.store);
+  const sourceItems = Array.isArray(body.items) ? body.items.slice(0, 40) : [];
+  const items = sourceItems.map((item, index) => ({
+    index,
+    name: cleanProductDisplayName(item && item.name),
+    normalizedName: normalizeProductName(item && item.name),
+  })).filter((item) => item.name && item.normalizedName);
+  if (!items.length) return json({ ok: true, items: [] });
+
+  const uniqueNames = [...new Set(items.map((item) => item.normalizedName))];
+  const placeholders = uniqueNames.map(() => "?").join(",");
+  const learnedResult = await env.DB.prepare(
+    `SELECT normalized_name, category FROM category_rules WHERE user_id = ? AND normalized_name IN (${placeholders})`,
+  ).bind(auth.user.id, ...uniqueNames).all();
+  const learned = new Map((learnedResult.results || []).map((row) => [row.normalized_name, canonicalCategory(row.category)]));
+  let cached = new Map();
+  if (storeKey) {
+    const cacheResult = await env.DB.prepare(
+      `SELECT normalized_name, category, source_category, matched_name FROM product_category_cache WHERE store_key = ? AND normalized_name IN (${placeholders})`,
+    ).bind(storeKey, ...uniqueNames).all();
+    cached = new Map((cacheResult.results || []).map((row) => [row.normalized_name, row]));
+  }
+
+  const suggestions = items.map((item) => {
+    const learnedCategory = learned.get(item.normalizedName);
+    if (learnedCategory && learnedCategory !== "Otros") return { ...item, category: learnedCategory, source: "corrección guardada" };
+    const inferred = classifyProductName(item.name);
+    if (inferred.category !== "Otros") return { ...item, category: inferred.category, source: inferred.source };
+    const cache = cached.get(item.normalizedName);
+    if (cache) return { ...item, category: canonicalCategory(cache.category), source: "catálogo guardado", matchedName: cache.matched_name, sourceCategory: cache.source_category };
+    return { ...item, category: "Otros", source: "sin coincidencia" };
+  });
+
+  const pendingLimit = storeKey === "hipercor" ? 2 : 8;
+  const pending = storeKey ? suggestions.filter((item) => item.category === "Otros").slice(0, pendingLimit) : [];
+  const now = nowIso();
+  for (let offset = 0; offset < pending.length; offset += 2) {
+    const group = pending.slice(offset, offset + 2);
+    await Promise.all(group.map(async (item) => {
+      try {
+        const offers = await searchStoreProducts(storeKey, item.name, { limit: 3, browser: env.BROWSER, fetcher: fetch });
+        const offer = offers[0];
+        if (!offer) return;
+        const match = classifyCatalogProduct(offer.category, offer.name);
+        if (match.category === "Otros") return;
+        item.category = match.category;
+        item.source = "catálogo del supermercado";
+        item.matchedName = offer.name;
+        item.sourceCategory = offer.category || "";
+        await env.DB.prepare(
+          "INSERT INTO product_category_cache (store_key, normalized_name, display_name, category, source_category, matched_name, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(store_key, normalized_name) DO UPDATE SET display_name = excluded.display_name, category = excluded.category, source_category = excluded.source_category, matched_name = excluded.matched_name, updated_at = excluded.updated_at",
+        ).bind(storeKey, item.normalizedName, item.name, item.category, item.sourceCategory, item.matchedName, now).run();
+      } catch (_error) {
+        // Keep the review usable when a supermarket blocks or times out.
+      }
+    }));
+  }
+
+  return json({
+    ok: true,
+    storeKey,
+    items: suggestions.map(({ index, name, category, source, matchedName = "", sourceCategory = "" }) => ({
+      index, name, category, source, matchedName, sourceCategory,
+    })),
+  });
 }
 
 function receiptItemStatements(env, userId, receiptId, items, createdAt) {
@@ -457,7 +557,7 @@ function receiptItemStatements(env, userId, receiptId, items, createdAt) {
         createdAt,
       ),
     );
-    if (item.normalizedName) {
+    if (item.normalizedName && item.categoryEdited) {
       statements.push(
         env.DB.prepare(
           "INSERT INTO category_rules (user_id, normalized_name, display_name, category, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, normalized_name) DO UPDATE SET display_name = excluded.display_name, category = excluded.category, updated_at = excluded.updated_at",
@@ -724,6 +824,7 @@ export default {
       return user ? json({ ok: true, user }) : json({ error: "No autorizado" }, 401);
     }
     if (request.method === "GET" && url.pathname === "/api/dashboard") return dashboard(request, env);
+    if (request.method === "POST" && url.pathname === "/api/classify-products") return classifyProducts(request, env);
     if (request.method === "GET" && url.pathname === "/api/compare") return compareSearch(request, env);
     if (request.method === "GET" && url.pathname === "/api/settings") return getSettings(request, env);
     if (request.method === "PUT" && url.pathname === "/api/settings") return saveSettings(request, env);

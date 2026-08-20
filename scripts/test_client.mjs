@@ -226,6 +226,8 @@ assert.equal(parsedMercadona.items.find((item) => item.name === "SALSA MIEL Y MO
 assert.equal(parsedMercadona.items.find((item) => item.name === "MAYONESA BOCA ABAJO").category, "Salsas");
 assert.equal(parsedMercadona.items.find((item) => item.name === "FILETE MELVA OLIVA").category, "Pescado");
 assert.equal(parsedMercadona.items.find((item) => item.name === "ALBÓNDIGAS 24 UNID").category, "Carne");
+assert.equal(parsedMercadona.items.find((item) => item.name === "COSTILLAR 1/2 PATATA").category, "Carne");
+assert.equal(parsedMercadona.items.find((item) => item.name === "FILETE PECHUGA").category, "Carne");
 assert.equal(parsedMercadona.items.find((item) => item.name === "MUESLI QUINOA CHIA").category, "Cereales y pasta");
 assert.equal(parsedMercadona.items.find((item) => item.name === "LACA XTRAFORTE").category, "Higiene");
 assert.equal(parsedMercadona.items.find((item) => item.name === "DISCOS DESM REDONDO").category, "Higiene");

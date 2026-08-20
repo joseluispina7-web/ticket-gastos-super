@@ -13,6 +13,7 @@ import {
   parseUnitPrice,
   productMatchScore,
   queryVariants,
+  searchStoreProducts,
 } from "../server/comparison.js";
 
 assert.deepEqual(parsePackageMetric("64 uds"), { amount: 64, unit: "unit", label: "64 uds" });
@@ -170,6 +171,10 @@ assert.equal(comparison.stores[0].offers[0].packageAmount, 22);
 assert.equal(comparison.stores[0].offers[0].packageLabel, "Paquete | 22 unidades");
 assert.match(mercadonaIndexUrl, /products_prod_mad3_es/);
 assert.equal(Object.hasOwn(comparison, "upcomingStores"), false);
+
+const mercadonaMatches = await searchStoreProducts("mercadona", "panales talla 6", { fetcher: fixtureFetch, limit: 2 });
+assert.equal(mercadonaMatches[0].category, "");
+assert.equal(mercadonaMatches[0].name, "Panales bebe talla 6 Deliplus");
 
 async function blockedHipercorFetch(url) {
   if (String(url).includes("r.jina.ai")) return new Response("rate limited", { status: 429 });

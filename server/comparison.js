@@ -282,7 +282,9 @@ function offerShape(store, data) {
 }
 
 function categoryName(categories) {
-  return Array.isArray(categories) && categories[0] ? String(categories[0].name || "") : "";
+  return Array.isArray(categories)
+    ? categories.map((category) => String(category && category.name || "").trim()).filter(Boolean).join(" > ")
+    : "";
 }
 
 export function mapMercadonaHit(hit) {
@@ -818,6 +820,27 @@ function cacheSet(key, value) {
   memoryCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, value });
 }
 
+function storeAdapters() {
+  return {
+    mercadona: searchMercadona,
+    dia: (query, size, source) => searchExpanded(searchDia, query, size, source),
+    carrefour: searchCarrefour,
+    alcampo: searchAlcampo,
+    ahorramas: (query, size, source) => searchExpanded(searchAhorramas, query, size, source),
+    aldi: (query, size, source) => searchExpanded(searchAldi, query, size, source),
+    hipercor: searchHipercor,
+  };
+}
+
+export async function searchStoreProducts(storeKey, query, options = {}) {
+  const cleanQuery = cleanComparisonQuery(query);
+  const limit = Math.max(1, Math.min(Number(options.limit || 4), 8));
+  const search = storeAdapters()[String(storeKey || "").toLowerCase()];
+  if (!search || cleanQuery.length < 2) return [];
+  const offers = await search(cleanQuery, limit, options.fetcher || fetch, options.browser);
+  return rankOffers(cleanQuery, offers, limit);
+}
+
 export async function comparePrices(query, options = {}) {
   const cleanQuery = cleanComparisonQuery(query);
   if (cleanQuery.length < 2) throw new Error("Escribe al menos dos caracteres");
@@ -828,15 +851,7 @@ export async function comparePrices(query, options = {}) {
   const cached = options.cache !== false && memoryCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return { ...cached.value, cached: true };
 
-  const adapters = {
-    mercadona: searchMercadona,
-    dia: (query, size, source) => searchExpanded(searchDia, query, size, source),
-    carrefour: searchCarrefour,
-    alcampo: searchAlcampo,
-    ahorramas: (query, size, source) => searchExpanded(searchAhorramas, query, size, source),
-    aldi: (query, size, source) => searchExpanded(searchAldi, query, size, source),
-    hipercor: searchHipercor,
-  };
+  const adapters = storeAdapters();
   const activeMeta = STORE_META.filter((store) => enabledStores.includes(store.key));
   const searches = activeMeta.map((store) => adapters[store.key]);
   const results = await Promise.allSettled(searches.map((search) => search(cleanQuery, limit, fetcher, options.browser)));

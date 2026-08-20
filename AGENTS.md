@@ -10,7 +10,7 @@ Read this file and `README.md` before changing the project. The GitHub repositor
 - Never fabricate comparison offers. Surface empty or unavailable stores explicitly and keep successful stores usable.
 - Compare only products with the same normalized unit (`kg`, `L` or `unit`).
 - Keep a manual review step before saving OCR or parsed receipt data.
-- Preserve learned per-user category rules.
+- Preserve learned per-user category rules. Only explicit category changes are learning events; do not turn every automatic import into a user rule.
 - Treat receipt totals as authoritative for spending KPIs; item totals may differ because of discounts or OCR errors.
 - Store secrets only as hosting secrets/environment variables. Never commit tokens, passwords or invite codes.
 
@@ -18,11 +18,13 @@ Read this file and `README.md` before changing the project. The GitHub repositor
 
 - `web/index.html`: complete client, styles, PDF text extraction, Tesseract OCR, parsing, settings and review UI.
 - `server/index.js`: Worker backend, authentication, D1 schema, receipts, settings and dashboard API.
+- `server/categories.js`: shared product concepts, ticket abbreviations and catalogue-category mapping.
 - `server/comparison.js`: independent store adapters, matching, normalization and short-lived cache.
 - `scripts/build.mjs`: creates the deployable `dist/` tree.
 - `scripts/dev_server.mjs`: local preview server with compare/settings/shopping-plan endpoints.
 - `scripts/test_client.mjs`: deterministic client parser fixtures, including Hipercor paper ticket format.
 - `scripts/test_comparison.mjs`: deterministic adapter and price-normalization fixtures.
+- `scripts/test_categories.mjs`: deterministic semantic and catalogue-category fixtures.
 - `.openai/hosting.json`: current OpenAI Sites project ID and D1 binding.
 - `.github/workflows/deploy-cloudflare.yml`: automatic Cloudflare deployment from `main` once repository secrets are configured.
 - `wrangler.jsonc`: production Worker bindings for D1 and Browser Run.
@@ -80,6 +82,15 @@ The workflow `Deploy Cloudflare` runs automatically on every push to `main` and 
 - Preserve manual review. OCR output must never be saved without letting the user fix it.
 - Product text corrections should be conservative and visible in tests.
 - Strip a leading purchased quantity from product display/search names. Keep quantities inside package descriptions, such as `24 UNID`, `500 G` or `150 unidades`.
+
+## Category Classification
+
+- Do not bulk-crawl every supermarket catalogue during receipt import. Classify locally first and query only unresolved products in the assigned store.
+- Keep high-confidence product concepts in `PRODUCT_CATEGORY_RULES`, ordered so specific conflicts win: fish before generic `filete`, meat before side dishes such as `patata`, and sauces before ingredients such as `miel`.
+- `/api/classify-products` uses exact user corrections, local concepts, `product_category_cache`, then the assigned store adapter. Keep this order.
+- `product_category_cache` is shared catalogue knowledge keyed by store and normalized receipt name. It contains no private receipt data.
+- `category_rules` is user-specific and must only be updated when `categoryEdited` is true.
+- Manual review remains authoritative. Never overwrite a category the user explicitly changed in the current review.
 
 ## Next Product Work
 

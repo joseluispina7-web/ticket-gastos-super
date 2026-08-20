@@ -16,7 +16,7 @@ Esta es la publicación independiente en Cloudflare Workers + D1. El código viv
 - Subida de PDF, imagen o texto pegado.
 - Lectura de PDF con reconstrucción de líneas y OCR para documentos escaneados o fotos hechas con móvil.
 - Revisión manual antes de guardar y edición o eliminación posterior de cualquier ticket.
-- Categorías aprendidas por usuario, con nombres canónicos como `Lácteos`, `Bebé`, `Panadería` y `Charcutería`.
+- Categorías por conceptos y abreviaturas de ticket, consulta puntual al catálogo del supermercado para productos desconocidos y correcciones manuales aprendidas por usuario.
 - Dashboard mensual con total, tickets, productos únicos, categoría top, donut de categorías, gasto por supermercado, histórico, total anual y top productos con sus unidades.
 - Comparador configurable desde Ajustes.
 - Cesta privada por usuario, con tienda, precio estimado y ahorro comparable.
@@ -64,10 +64,12 @@ También corrige palabras comunes sin acento al limpiar productos, por ejemplo `
 - `AGENTS.md`: contrato del producto, arquitectura y relevo para otro ChatGPT/Codex.
 - `web/index.html`: interfaz completa, estilos, OCR, parser y revisión.
 - `server/index.js`: backend Worker/Sites con usuarios, sesiones, tickets, ajustes y D1.
+- `server/categories.js`: taxonomía común, conceptos de producto, abreviaturas y traducción de categorías de los catálogos.
 - `server/comparison.js`: adaptadores, normalización, similitud y comparación de precios.
 - `scripts/build.mjs`: genera `dist/`.
 - `scripts/test_client.mjs`: valida parser, categorías y reconstrucción de líneas de PDF.
 - `scripts/test_comparison.mjs`: valida formatos, sinónimos, fuentes activas y respaldo de navegador con fixtures.
+- `scripts/test_categories.mjs`: valida la clasificación semántica y la traducción desde categorías de supermercado.
 - `scripts/dev_server.mjs`: servidor local con preview, comparador, ajustes y plan local.
 - `.openai/hosting.json`: proyecto actual de Sites.
 - `wrangler.jsonc`: configuración activa de Cloudflare Workers, D1 y Browser Run.
@@ -113,6 +115,17 @@ http://127.0.0.1:8788/?preview=1
 ```
 
 Los comandos equivalentes `npm run check` y `npm run dev` también están disponibles cuando el entorno incluye npm.
+
+## Clasificación De Productos
+
+No se descarga el catálogo completo de todos los supermercados en cada importación. Esa estrategia sería lenta, frágil y consumiría innecesariamente los límites gratuitos. La clasificación funciona por capas:
+
+1. `server/categories.js` reconoce conceptos prioritarios y abreviaturas del ticket. Por ejemplo, `COSTILLAR 1/2 PATATA`, `FILETE PECHUGA` y `ALBONDIGAS 24 UNID` son Carne aunque contengan palabras o números de envase.
+2. Si un producto sigue en `Otros`, `/api/classify-products` busca ese nombre únicamente en el catálogo del supermercado asignado al ticket.
+3. La categoría original del catálogo se traduce a la taxonomía de la app y el resultado queda en `product_category_cache` para no repetir la búsqueda.
+4. Un cambio manual en el selector de categoría se guarda en `category_rules` para ese usuario y tiene prioridad en futuras importaciones del mismo nombre.
+
+Las categorías automáticas no se guardan como correcciones manuales. Cuando aparezca un nombre nuevo o abreviado, se añade un fixture y, si es un concepto generalizable, se amplía `PRODUCT_CATEGORY_RULES`.
 
 ## GitHub + Cloudflare
 
