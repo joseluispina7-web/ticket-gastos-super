@@ -347,6 +347,19 @@
     }
     .bar i { display: block; height: 100%; background: var(--orange); border-radius: inherit; }
 
+    .store-bars { display: grid; gap: 12px; }
+    .store-row {
+      display: grid;
+      grid-template-columns: minmax(82px, 0.8fr) minmax(110px, 1.5fr) auto;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .store-row > span:first-child { font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+    .store-row strong { white-space: nowrap; font-size: 12px; }
+    .store-bar { height: 9px; border-radius: 8px; background: #ded7ca; overflow: hidden; }
+    .store-bar i { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+
     .drawer {
       position: fixed;
       inset: 0 0 0 auto;
@@ -431,6 +444,16 @@
       background: #f1ded9;
       color: #873124;
       font-weight: 900;
+    }
+    .ticket-actions { display: inline-flex; justify-content: flex-end; gap: 6px; }
+    .edit-button {
+      min-height: 34px;
+      border-radius: 8px;
+      padding: 0 10px;
+      background: #dce9df;
+      color: #214c31;
+      font-size: 12px;
+      font-weight: 850;
     }
     .total-row {
       display: flex;
@@ -681,6 +704,7 @@
       .panel { padding: 17px 15px; }
       .panel h2 { font-size: 25px; }
       .review-meta { grid-template-columns: 1fr; }
+      .review-table { min-width: 620px; }
       .compare-controls, .plan-surface, .settings-surface { padding: 17px 15px; }
       .compare-search { grid-template-columns: 1fr; }
       .comparison-highlight { grid-template-columns: 1fr; }
@@ -758,6 +782,10 @@
         </section>
 
         <aside class="side-stack">
+        <section class="panel">
+          <h2 class="section-title">Gasto por supermercado</h2>
+          <div id="storeChart" class="store-bars"></div>
+        </section>
         <section class="panel">
           <h2 class="section-title">Histórico anual</h2>
           <div class="annual-summary">
@@ -851,10 +879,10 @@
   <div id="drawerOverlay" class="overlay" hidden></div>
   <aside id="importDrawer" class="drawer" hidden>
     <div class="drawer-head">
-      <h2>Importar ticket</h2>
+      <h2 id="drawerTitle">Importar ticket</h2>
       <button id="closeDrawerBtn" class="ghost">Cerrar</button>
     </div>
-    <div class="dropzone">
+    <div id="importSourcePanel" class="dropzone">
       <label id="dropTarget" class="drop-target" for="ticketFile">
         <strong>Seleccionar ticket</strong>
         <span>PDF, JPG, PNG o TXT</span>
@@ -875,7 +903,17 @@
       <div class="review-meta">
         <label class="field">
           <span>Supermercado</span>
-          <input id="reviewStore">
+          <input id="reviewStore" list="knownStores" autocomplete="off">
+          <datalist id="knownStores">
+            <option value="Mercadona"></option>
+            <option value="Carrefour"></option>
+            <option value="DIA"></option>
+            <option value="Alcampo"></option>
+            <option value="Ahorramas"></option>
+            <option value="Aldi"></option>
+            <option value="Hipercor"></option>
+            <option value="El Corte Inglés"></option>
+          </datalist>
         </label>
         <label class="field">
           <span>Fecha</span>
@@ -886,18 +924,20 @@
           <input id="reviewTotal" type="number" min="0" step="0.01">
         </label>
       </div>
-      <table class="review-table">
-        <thead>
-          <tr>
-            <th>Producto</th>
-            <th>Categoría</th>
-            <th>Cant.</th>
-            <th>Importe</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="reviewRows"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="review-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th>Cant.</th>
+              <th>Importe</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="reviewRows"></tbody>
+        </table>
+      </div>
       <div class="total-row">
         <span>Total líneas</span>
         <strong id="reviewComputedTotal">0,00 EUR</strong>
@@ -941,25 +981,32 @@
     };
 
     var KEYWORDS = [
-      ["Bebé", ["panal", "panales", "potito", "bebe", "infantil", "toallitas", "dodot", "leche crecimiento"]],
-      ["Pescado", ["merluza", "salmon", "bacalao", "atun", "pescado", "gamba", "langostino", "calamar", "sardina", "sepia"]],
-      ["Carne", ["pollo", "pavo", "ternera", "cerdo", "lomo", "carne", "burger", "hamburguesa", "salchicha", "chorizo", "bacon", "conejo"]],
-      ["Lácteos", ["leche", "yogur", "queso", "mantequilla", "nata", "kefir", "cuajada", "flan", "requeson"]],
-      ["Fruta", ["platano", "banana", "manzana", "pera", "naranja", "melon", "sandia", "kiwi", "uva", "fresa", "limon", "mandarina", "aguacate"]],
-      ["Verdura", ["tomate", "lechuga", "cebolla", "patata", "zanahoria", "calabacin", "pimiento", "brocoli", "verdura", "pepino", "berenjena", "ensalada"]],
-      ["Charcutería", ["jamon", "pate", "chopped", "fuet", "salami", "mortadela", "charcuteria", "embutido"]],
-      ["Higiene", ["champu", "gel", "dental", "pasta dientes", "desodorante", "compresa", "papel higienico", "afeitado", "colonia"]],
-      ["Panadería", ["pan", "barra", "baguette", "pan molde", "croissant", "napolitana", "bolleria", "tortilla trigo"]],
-      ["Bebidas", ["agua", "cerveza", "vino", "refresco", "cola", "zumo", "cafe", "bebida", "tonica", "sidra"]],
-      ["Limpieza", ["detergente", "lejia", "limpiador", "lavavajillas", "suavizante", "fregasuelos", "bayeta", "estropajo", "bolsa basura"]],
-      ["Cereales y pasta", ["pasta", "macarron", "spaghetti", "espagueti", "arroz", "cereal", "avena", "harina", "cuscus"]],
-      ["Platos y conservas", ["conserva", "lata", "garbanzo", "lenteja", "fabada", "caldo", "sopa", "gazpacho", "crema"]],
-      ["Dulces y snacks", ["chocolate", "galleta", "snack", "patata frita", "helado", "dulce", "caramelo", "bizcocho", "turron"]],
+      ["Bebé", ["panal", "panales", "pañal", "pañales", "potito", "bebe", "infantil", "toallitas", "dodot", "leche crecimiento", "papilla"]],
+      ["Pescado", ["merluza", "salmon", "bacalao", "atun", "bonito", "pescado", "gamba", "langostino", "calamar", "sardina", "sepia", "mejillon"]],
+      ["Carne", ["pollo", "pavo", "ternera", "cerdo", "lomo", "carne", "burger", "hamburguesa", "salchicha", "chorizo", "bacon", "conejo", "costilla"]],
+      ["Lácteos", ["leche", "yogur", "queso", "mantequilla", "nata", "kefir", "cuajada", "flan", "requeson", "batido", "colacao shake"]],
+      ["Fruta", ["platano", "banana", "manzana", "pera", "naranja", "melon", "sandia", "kiwi", "uva", "fresa", "limon", "mandarina", "aguacate", "melocoton"]],
+      ["Verdura", ["tomate", "lechuga", "cebolla", "patata", "zanahoria", "calabacin", "pimiento", "brocoli", "verdura", "pepino", "berenjena", "ensalada", "calabaza"]],
+      ["Charcutería", ["jamon", "pate", "chopped", "fuet", "salami", "mortadela", "charcuteria", "embutido", "pechuga lonchas"]],
+      ["Higiene", ["champu", "gel", "dental", "pasta dientes", "desodorante", "compresa", "papel higienico", "afeitado", "colonia", "jabon manos"]],
+      ["Panadería", ["pan", "barra", "baguette", "pan molde", "croissant", "napolitana", "bolleria", "tortilla trigo", "brioche"]],
+      ["Bebidas", ["agua", "cerveza", "vino", "refresco", "cola", "zumo", "cafe", "bebida", "tonica", "sidra", "licor"]],
+      ["Limpieza", ["detergente", "lejia", "limpiador", "lavavajillas", "suavizante", "fregasuelos", "bayeta", "estropajo", "bolsa basura", "cucarachicida", "insecticida", "ambientador"]],
+      ["Cereales y pasta", ["pasta", "macarron", "spaghetti", "espagueti", "arroz", "cereal", "avena", "harina", "cuscus", "fideo"]],
+      ["Platos y conservas", ["conserva", "lata", "garbanzo", "lenteja", "fabada", "caldo", "sopa", "gazpacho", "crema", "vinagre", "aceite", "mayonesa", "ketchup"]],
+      ["Dulces y snacks", ["kinder", "chocolate", "menta con chocolate", "galleta", "snack", "patata frita", "helado", "dulce", "caramelo", "bizcocho", "turron", "gominola", "bombon"]],
       ["Frutos secos", ["almendra", "nuez", "nueces", "pistacho", "cacahuete", "anacardo", "avellana"]],
       ["Huevos", ["huevo", "huevos"]],
-      ["Congelados", ["congelado", "congelada", "pizza", "croqueta", "hielo"]],
+      ["Congelados", ["congelado", "congelada", "pizza", "croqueta", "hielo", "ultracongelado"]],
       ["Mascotas", ["perro", "gato", "mascota", "pienso", "arena gatos"]],
-      ["Hogar", ["papel cocina", "servilleta", "aluminio", "film", "pila", "bombilla", "menaje"]]
+      ["Hogar", ["papel cocina", "servilleta", "aluminio", "film", "pila", "bombilla", "menaje", "bolsa congelacion"]]
+    ];
+
+    var PRIORITY_KEYWORDS = [
+      ["Platos y conservas", ["vinagre", "aceite oliva", "aceite girasol"]],
+      ["Dulces y snacks", ["kinder", "menta con chocolate"]],
+      ["Limpieza", ["cucarachicida", "insecticida"]],
+      ["Lácteos", ["batido", "colacao shake"]]
     ];
 
     var DEFAULT_STORE_OPTIONS = [
@@ -1000,9 +1047,12 @@
       annualTotal: document.getElementById("annualTotal"),
       annualMeta: document.getElementById("annualMeta"),
       trendPanel: document.getElementById("trendPanel"),
+      storeChart: document.getElementById("storeChart"),
       topProducts: document.getElementById("topProducts"),
       receiptList: document.getElementById("receiptList"),
       drawer: document.getElementById("importDrawer"),
+      drawerTitle: document.getElementById("drawerTitle"),
+      importSourcePanel: document.getElementById("importSourcePanel"),
       overlay: document.getElementById("drawerOverlay"),
       closeDrawerBtn: document.getElementById("closeDrawerBtn"),
       dropTarget: document.getElementById("dropTarget"),
@@ -1049,6 +1099,7 @@
       dashboard: null,
       month: new Date().toISOString().slice(0, 7),
       review: null,
+      editingReceiptId: null,
       view: "dashboard",
       comparison: null,
       shoppingPlan: [],
@@ -1455,6 +1506,7 @@
       renderKpis(summary.kpis);
       renderDonut(summary.categories, summary.kpis.categoryTotal);
       renderLegend(summary.categories, summary.kpis.categoryTotal);
+      renderStores(summary.stores);
       renderTrend(data.trend);
       renderTopProducts(summary.topProducts);
       renderReceipts(data.receipts, data.items);
@@ -1537,12 +1589,15 @@
 
     function renderTopProducts(products) {
       if (!products || !products.length) {
-        els.topProducts.innerHTML = "<div class=\"empty-state\"><strong>Sin productos</strong><span>Los productos apareceran al guardar el primer ticket.</span></div>";
+        els.topProducts.innerHTML = "<div class=\"empty-state\"><strong>Sin productos</strong><span>Los productos aparecerán al guardar el primer ticket.</span></div>";
         return;
       }
       els.topProducts.innerHTML = "<table><thead><tr><th>Producto</th><th>Total</th></tr></thead><tbody>" +
         products.map(function(product) {
-          return "<tr><td><div class=\"product-cell\"><button class=\"linkish\" data-compare-product=\"" + escapeHtml(product.name) + "\">" + escapeHtml(product.name) + "</button><span class=\"product-meta\"><span class=\"category-chip\">" + escapeHtml(product.category) + "</span><span class=\"product-count\">" + escapeHtml(product.count || 1) + " compras</span></span></div></td><td class=\"amount\">" + escapeHtml(euro(product.total)) + "</td></tr>";
+          var quantity = Number(product.quantity || product.count || 1);
+          var unitLabel = Math.abs(quantity - 1) < 0.001 ? "1 unidad" : new Intl.NumberFormat("es-ES", { maximumFractionDigits: 3 }).format(quantity) + " unidades";
+          var purchaseLabel = Number(product.count || 1) === 1 ? "1 ticket" : Number(product.count || 1) + " tickets";
+          return "<tr><td><div class=\"product-cell\"><button class=\"linkish\" data-compare-product=\"" + escapeHtml(product.name) + "\">" + escapeHtml(product.name) + "</button><span class=\"product-meta\"><span class=\"category-chip\">" + escapeHtml(product.category) + "</span><span class=\"product-count\">" + escapeHtml(unitLabel + " · " + purchaseLabel) + "</span></span></div></td><td class=\"amount\">" + escapeHtml(euro(product.total)) + "</td></tr>";
         }).join("") + "</tbody></table>";
     }
 
@@ -1562,12 +1617,62 @@
           var receiptProducts = productsByReceipt[String(receipt.id)] || [];
           var productRow = receiptProducts.length
             ? "<tr class=\"receipt-products-row\"><td colspan=\"3\"><div class=\"receipt-products\">" + receiptProducts.map(function(item) {
-                return "<span><b>" + escapeHtml(item.name) + "</b><button class=\"receipt-compare\" data-compare-receipt-product=\"" + escapeHtml(item.name) + "\">Comparar</button></span>";
+                var quantity = Number(item.quantity || 1);
+                var quantityLabel = Math.abs(quantity - 1) < 0.001 ? "" : " × " + new Intl.NumberFormat("es-ES", { maximumFractionDigits: 3 }).format(quantity);
+                return "<span><b>" + escapeHtml(item.name + quantityLabel) + "</b><button class=\"receipt-compare\" data-compare-receipt-product=\"" + escapeHtml(item.name) + "\">Comparar</button></span>";
               }).join("") + "</div></td></tr>"
             : "";
           return "<tr><td><strong>" + escapeHtml(receipt.store) + "</strong><br><span class=\"muted\">" + escapeHtml(receipt.receipt_date) + "</span></td><td class=\"amount\">" + escapeHtml(euro(receipt.total)) + "</td><td>" +
-            "<button class=\"mini-button\" data-delete=\"" + escapeHtml(receipt.id) + "\" aria-label=\"Eliminar ticket\" title=\"Eliminar ticket\">&times;</button></td></tr>" + productRow;
+            "<span class=\"ticket-actions\"><button class=\"edit-button\" data-edit=\"" + escapeHtml(receipt.id) + "\">Editar</button><button class=\"mini-button\" data-delete=\"" + escapeHtml(receipt.id) + "\" aria-label=\"Eliminar ticket\" title=\"Eliminar ticket\">&times;</button></span></td></tr>" + productRow;
         }).join("") + "</tbody></table>";
+    }
+
+    function startNewReceipt() {
+      state.editingReceiptId = null;
+      state.review = null;
+      els.drawerTitle.textContent = "Importar ticket";
+      els.importSourcePanel.hidden = false;
+      els.saveReceiptBtn.textContent = "Guardar ticket";
+      els.rawText.value = "";
+      els.ticketFile.value = "";
+      els.selectedFileName.textContent = "";
+      els.selectedFileName.hidden = true;
+      els.reviewPanel.hidden = true;
+      setStatus("");
+      openDrawer();
+    }
+
+    function editReceipt(id) {
+      if (!state.dashboard) return;
+      var receipt = (state.dashboard.receipts || []).find(function(row) { return String(row.id) === String(id); });
+      if (!receipt) return;
+      var items = (state.dashboard.items || []).filter(function(item) { return String(item.receipt_id) === String(id); });
+      state.editingReceiptId = String(id);
+      state.review = {
+        store: receipt.store,
+        date: receipt.receipt_date,
+        total: Number(receipt.total || 0),
+        sourceName: receipt.source_name || "",
+        items: items.map(function(item) {
+          return {
+            name: item.name,
+            category: canonicalCategory(item.category),
+            quantity: Number(item.quantity || 1),
+            unitPrice: Number(item.unit_price || 0),
+            lineTotal: Number(item.line_total || 0)
+          };
+        })
+      };
+      els.drawerTitle.textContent = "Editar ticket";
+      els.importSourcePanel.hidden = true;
+      els.saveReceiptBtn.textContent = "Guardar cambios";
+      els.reviewStore.value = state.review.store;
+      els.reviewDate.value = state.review.date;
+      els.reviewTotal.value = state.review.total.toFixed(2);
+      els.reviewPanel.hidden = false;
+      renderReviewRows();
+      setStatus("Puedes cambiar el supermercado, la fecha, las cantidades, los importes y las categorías.");
+      openDrawer();
     }
 
     function openDrawer() {
@@ -1829,11 +1934,13 @@
       for (var i = 0; i < rules.length; i += 1) {
         if (rules[i].normalized_name === normalized) return canonicalCategory(rules[i].category);
       }
-      for (var k = 0; k < KEYWORDS.length; k += 1) {
-        var category = KEYWORDS[k][0];
-        var words = KEYWORDS[k][1];
+      var dictionaries = PRIORITY_KEYWORDS.concat(KEYWORDS);
+      for (var k = 0; k < dictionaries.length; k += 1) {
+        var category = dictionaries[k][0];
+        var words = dictionaries[k][1];
         for (var w = 0; w < words.length; w += 1) {
-          if ((" " + normalized + " ").indexOf(" " + words[w] + " ") !== -1) return canonicalCategory(category);
+          var keyword = normalizeProduct(words[w]);
+          if (keyword && (" " + normalized + " ").indexOf(" " + keyword + " ") !== -1) return canonicalCategory(category);
         }
       }
       return "Otros";
@@ -1862,6 +1969,10 @@
 
     function correctSpanishText(value) {
       var text = String(value || "");
+      text = text
+        .replace(/\bEL[.\s]?ANCO\b/gi, function(match) { return preserveReplacementCase(match, "blanco"); })
+        .replace(/\bCOLACAC\b/gi, function(match) { return preserveReplacementCase(match, "colacao"); })
+        .replace(/\b1[<(]1?\s+UNIDA(?:D(?:ES)?)?\b/gi, function(match) { return preserveReplacementCase(match, "10 unidades"); });
       [
         ["panales", "pañales"],
         ["panal", "pañal"],
@@ -1878,7 +1989,8 @@
         ["brocoli", "brócoli"],
         ["pate", "paté"],
         ["bolleria", "bollería"],
-        ["turron", "turrón"]
+        ["turron", "turrón"],
+        ["unida", "unidades"]
       ].forEach(function(pair) {
         text = replaceWord(text, pair[0], pair[1]);
       });
@@ -1897,7 +2009,7 @@
         .trim());
     }
 
-    function parseLineItem(line, pendingName) {
+    function parseLineItem(line, pendingName, store) {
       var matches = Array.from(line.matchAll(/-?\d{1,5}(?:[.,]\d{2})/g));
       if (!matches.length) return null;
       var totalMatch = matches[matches.length - 1];
@@ -1908,7 +2020,9 @@
       var unitPrice = lineTotal;
       var quantityMatch = prefix.match(/(\d+(?:[.,]\d+)?)\s*(?:ud|uds|u|kg)?\s*[xX*]\s*\(?\s*(\d+(?:[.,]\d{2}))\s*\)?/i);
       var weightMatch = prefix.match(/(\d+[.,]\d+)\s*kg\b.*?(\d+(?:[.,]\d{2}))\s*(?:eur\/?kg|e\/kg|euros?\/kg)/i);
-      var hipercorQuantityMatch = prefix.match(/\s+(\d+(?:[.,]\d+)?)\s+[A-Z]\s*$/i);
+      var hipercorQuantityMatch = store === "Hipercor"
+        ? prefix.match(/\s+([1-9]\d*(?:[.,]\d+)?)\s*[A-D8]\s*$/i)
+        : prefix.match(/\s+(\d+(?:[.,]\d+)?)\s+[A-Z]\s*$/i);
       if (weightMatch) {
         quantity = Math.max(parseMoney(weightMatch[1]), 0.001);
         unitPrice = parseMoney(weightMatch[2]);
@@ -1925,7 +2039,7 @@
           .replace(/^\s*\d+[.,]\d+\s*kg\s*/i, "")
           .replace(/\s+\d+(?:[.,]\d{2})\s*(?:eur\/?kg|e\/kg|euros?\/kg)\s*$/i, "");
       }
-      if (hipercorQuantityMatch) labelPrefix = labelPrefix.replace(/\s+\d+(?:[.,]\d+)?\s+[A-Z]\s*$/i, "");
+      if (hipercorQuantityMatch) labelPrefix = labelPrefix.slice(0, hipercorQuantityMatch.index).trim();
       var name = cleanProductLabel(labelPrefix);
       if (!/[a-zA-Z\u00c0-\u017f]{2}/.test(name)) name = cleanProductLabel(pendingName);
       if (name.length < 3 || isNoise(name) || /^\d+$/.test(name) || /\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/.test(name)) return null;
@@ -1942,6 +2056,7 @@
       var lines = String(text || "").split(/\r?\n/).map(function(line) {
         return line.replace(/[|]+/g, " ").replace(/\s+/g, " ").trim();
       }).filter(Boolean);
+      var store = detectStore(text);
       var totalInfo = findTotal(lines);
       var itemLines = totalInfo ? lines.slice(0, totalInfo.index) : lines;
       var items = [];
@@ -1961,7 +2076,7 @@
         var parseLine = pendingPricing && /^\d{1,5}(?:[.,]\d{2})\s*$/.test(line)
           ? pendingName + " " + pendingPricing + " " + line
           : line;
-        var item = parseLineItem(parseLine, pendingName);
+        var item = parseLineItem(parseLine, pendingName, store);
         if (item) {
           items.push(item);
           pendingName = "";
@@ -1974,7 +2089,7 @@
         }
       });
       return {
-        store: detectStore(text),
+        store: store,
         date: detectDate(text),
         sourceName: (els.ticketFile.files[0] && els.ticketFile.files[0].name) || "",
         rawText: text,
@@ -2001,6 +2116,19 @@
       return categories.map(function(category) {
         var canonical = canonicalCategory(category);
         return "<option value=\"" + escapeHtml(canonical) + "\"" + (canonical === selected ? " selected" : "") + ">" + escapeHtml(canonical) + "</option>";
+      }).join("");
+    }
+
+    function renderStores(stores) {
+      var rows = stores || [];
+      if (!rows.length) {
+        els.storeChart.innerHTML = "<p class=\"muted\">Sin supermercados este mes.</p>";
+        return;
+      }
+      var max = Math.max.apply(null, rows.map(function(row) { return Number(row.amount || 0); })) || 1;
+      els.storeChart.innerHTML = rows.map(function(row) {
+        var width = Math.max((Number(row.amount || 0) / max) * 100, 4);
+        return "<div class=\"store-row\"><span title=\"" + escapeHtml(row.store) + "\">" + escapeHtml(row.store) + "</span><span class=\"store-bar\"><i style=\"width:" + width + "%\"></i></span><strong>" + escapeHtml(euro(row.amount)) + "</strong></div>";
       }).join("");
     }
 
@@ -2063,9 +2191,12 @@
       }
       setStatus("Guardando...");
       try {
-        await api("/api/receipts", { method: "POST", body: JSON.stringify(state.review) });
+        var receiptId = state.editingReceiptId;
+        var endpoint = receiptId ? "/api/receipts/" + encodeURIComponent(receiptId) : "/api/receipts";
+        await api(endpoint, { method: receiptId ? "PUT" : "POST", body: JSON.stringify(state.review) });
         closeDrawer();
         state.review = null;
+        state.editingReceiptId = null;
         els.rawText.value = "";
         els.ticketFile.value = "";
         els.selectedFileName.textContent = "";
@@ -2078,6 +2209,9 @@
     }
 
     async function deleteReceipt(id) {
+      var receipt = state.dashboard && (state.dashboard.receipts || []).find(function(row) { return String(row.id) === String(id); });
+      var label = receipt ? receipt.store + " del " + receipt.receipt_date : "este ticket";
+      if (!window.confirm("¿Eliminar " + label + "? Esta acción no se puede deshacer.")) return;
       await api("/api/receipts/" + encodeURIComponent(id), { method: "DELETE" });
       await loadDashboard();
     }
@@ -2099,7 +2233,7 @@
       state.month = els.monthInput.value || state.month;
       loadDashboard();
     });
-    els.openImportBtn.addEventListener("click", openDrawer);
+    els.openImportBtn.addEventListener("click", startNewReceipt);
     els.closeDrawerBtn.addEventListener("click", closeDrawer);
     els.overlay.addEventListener("click", closeDrawer);
     els.ticketFile.addEventListener("change", handleFileSelection);
@@ -2159,8 +2293,15 @@
         compareProducts();
         return;
       }
-      var id = event.target.dataset.delete;
-      if (id) deleteReceipt(id);
+      var editButton = event.target.closest("[data-edit]");
+      if (editButton) {
+        editReceipt(editButton.dataset.edit);
+        return;
+      }
+      var deleteButton = event.target.closest("[data-delete]");
+      if (deleteButton) deleteReceipt(deleteButton.dataset.delete).catch(function(error) {
+        window.alert(error.message || "No se ha podido eliminar el ticket.");
+      });
     });
     Array.prototype.forEach.call(els.viewTabs, function(tab) {
       tab.addEventListener("click", function() { switchView(tab.dataset.view); });

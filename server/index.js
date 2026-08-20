@@ -213,7 +213,7 @@ async function register(request, env) {
   const password = String(body.password || "");
   const inviteCode = String(body.inviteCode || "");
   if (!/^[a-z0-9._-]{3,24}$/.test(username)) {
-    return json({ error: "Usuario no valido" }, 400);
+    return json({ error: "Usuario no válido" }, 400);
   }
   if (password.length < 6) {
     return json({ error: "Contraseña demasiado corta" }, 400);
@@ -223,7 +223,7 @@ async function register(request, env) {
   }
   const count = await getUserCount(env);
   if (count >= MAX_USERS) {
-    return json({ error: "Limite de usuarios alcanzado" }, 403);
+    return json({ error: "Límite de usuarios alcanzado" }, 403);
   }
   const salt = randomHex(16);
   const passwordHash = await hashPassword(password, salt);
@@ -291,10 +291,12 @@ function summarize(items, receipts, month) {
       category,
       total: 0,
       count: 0,
+      quantity: 0,
       lastPrice: 0,
     };
     current.total += amount;
     current.count += 1;
+    current.quantity += Number(item.quantity || 1);
     current.lastPrice = amount;
     productMap.set(productKey, current);
   }
@@ -384,15 +386,9 @@ function cleanCategory(category) {
   return canonicalCategory(category);
 }
 
-async function saveReceipt(request, env) {
-  const auth = await requireUser(request, env);
-  if (auth.response) return auth.response;
-  const body = await readBody(request);
-  const items = Array.isArray(body.items) ? body.items : [];
-  if (!items.length) return json({ error: "El ticket no tiene líneas" }, 400);
-  const receiptId = crypto.randomUUID();
-  const createdAt = nowIso();
-  const cleanedItems = items
+function cleanReceiptPayload(body) {
+  const sourceItems = Array.isArray(body.items) ? body.items : [];
+  const items = sourceItems
     .map((item) => {
       const name = String(item.name || "").trim().slice(0, 160);
       const quantity = Math.max(Number(item.quantity || 1), 0.001);
@@ -411,28 +407,29 @@ async function saveReceipt(request, env) {
       };
     })
     .filter((item) => item.name && item.lineTotal >= 0);
-  if (!cleanedItems.length) return json({ error: "No hay productos validos" }, 400);
-  const total =
-    Number(body.total) > 0
-      ? Number(body.total)
-      : cleanedItems.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
-  const store = cleanStore(body.store);
-  const date = cleanDate(body.date);
-  const sourceName = String(body.sourceName || "").trim().slice(0, 160);
-  const rawText = String(body.rawText || "").slice(0, 50000);
-  const statements = [
-    env.DB.prepare(
-      "INSERT INTO receipts (id, user_id, store, receipt_date, total, source_name, raw_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    ).bind(receiptId, auth.user.id, store, date, total, sourceName, rawText, createdAt),
-  ];
-  for (const item of cleanedItems) {
+  const itemTotal = items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
+  return {
+    items,
+    total: Number(body.total) > 0 ? Number(body.total) : itemTotal,
+    store: cleanStore(body.store),
+    date: cleanDate(body.date),
+    sourceName: String(body.sourceName || "").trim().slice(0, 160),
+    rawText: Object.prototype.hasOwnProperty.call(body, "rawText")
+      ? String(body.rawText || "").slice(0, 50000)
+      : null,
+  };
+}
+
+function receiptItemStatements(env, userId, receiptId, items, createdAt) {
+  const statements = [];
+  for (const item of items) {
     statements.push(
       env.DB.prepare(
         "INSERT INTO receipt_items (id, receipt_id, user_id, name, normalized_name, category, quantity, unit_price, line_total, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       ).bind(
         item.id,
         receiptId,
-        auth.user.id,
+        userId,
         item.name,
         item.normalizedName,
         item.category,
@@ -446,12 +443,64 @@ async function saveReceipt(request, env) {
       statements.push(
         env.DB.prepare(
           "INSERT INTO category_rules (user_id, normalized_name, display_name, category, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, normalized_name) DO UPDATE SET display_name = excluded.display_name, category = excluded.category, updated_at = excluded.updated_at",
-        ).bind(auth.user.id, item.normalizedName, item.name, item.category, createdAt),
+        ).bind(userId, item.normalizedName, item.name, item.category, createdAt),
       );
     }
   }
+  return statements;
+}
+
+async function saveReceipt(request, env) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  const body = await readBody(request);
+  const payload = cleanReceiptPayload(body);
+  if (!payload.items.length) return json({ error: "El ticket no tiene líneas válidas" }, 400);
+  const receiptId = crypto.randomUUID();
+  const createdAt = nowIso();
+  const statements = [
+    env.DB.prepare(
+      "INSERT INTO receipts (id, user_id, store, receipt_date, total, source_name, raw_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).bind(
+      receiptId,
+      auth.user.id,
+      payload.store,
+      payload.date,
+      payload.total,
+      payload.sourceName,
+      payload.rawText || "",
+      createdAt,
+    ),
+    ...receiptItemStatements(env, auth.user.id, receiptId, payload.items, createdAt),
+  ];
   await env.DB.batch(statements);
   return json({ ok: true, receiptId });
+}
+
+async function updateReceipt(request, env, id) {
+  const auth = await requireUser(request, env);
+  if (auth.response) return auth.response;
+  const receipt = await env.DB.prepare("SELECT id FROM receipts WHERE id = ? AND user_id = ?").bind(id, auth.user.id).first();
+  if (!receipt) return json({ error: "Ticket no encontrado" }, 404);
+  const payload = cleanReceiptPayload(await readBody(request));
+  if (!payload.items.length) return json({ error: "El ticket no tiene líneas válidas" }, 400);
+  const updatedAt = nowIso();
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE receipts SET store = ?, receipt_date = ?, total = ?, source_name = ?, raw_text = COALESCE(?, raw_text) WHERE id = ? AND user_id = ?",
+    ).bind(
+      payload.store,
+      payload.date,
+      payload.total,
+      payload.sourceName,
+      payload.rawText,
+      id,
+      auth.user.id,
+    ),
+    env.DB.prepare("DELETE FROM receipt_items WHERE receipt_id = ? AND user_id = ?").bind(id, auth.user.id),
+    ...receiptItemStatements(env, auth.user.id, id, payload.items, updatedAt),
+  ]);
+  return json({ ok: true, receiptId: id });
 }
 
 async function deleteReceipt(request, env, id) {
@@ -592,7 +641,7 @@ async function saveShoppingPlanItem(request, env) {
   const productName = String(offer.name || "").trim().slice(0, 240);
   const price = Number(offer.price || 0);
   if (!storeName || !productId || !productName || !(price > 0)) {
-    return json({ error: "Producto no valido" }, 400);
+    return json({ error: "Producto no válido" }, 400);
   }
   const id = crypto.randomUUID();
   const createdAt = nowIso();
@@ -664,8 +713,9 @@ export default {
     if (request.method === "POST" && url.pathname === "/api/shopping-plan") return saveShoppingPlanItem(request, env);
     if (request.method === "DELETE" && url.pathname === "/api/shopping-plan") return clearShoppingPlan(request, env);
     if (request.method === "POST" && url.pathname === "/api/receipts") return saveReceipt(request, env);
-    const deleteMatch = url.pathname.match(/^\/api\/receipts\/([^/]+)$/);
-    if (request.method === "DELETE" && deleteMatch) return deleteReceipt(request, env, deleteMatch[1]);
+    const receiptMatch = url.pathname.match(/^\/api\/receipts\/([^/]+)$/);
+    if (request.method === "PUT" && receiptMatch) return updateReceipt(request, env, receiptMatch[1]);
+    if (request.method === "DELETE" && receiptMatch) return deleteReceipt(request, env, receiptMatch[1]);
     const planDeleteMatch = url.pathname.match(/^\/api\/shopping-plan\/([^/]+)$/);
     if (request.method === "DELETE" && planDeleteMatch) return deleteShoppingPlanItem(request, env, planDeleteMatch[1]);
     return json({ error: "No encontrado" }, 404);

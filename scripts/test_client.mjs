@@ -6,6 +6,9 @@ const html = await readFile(resolve("web", "index.html"), "utf8");
 assert.match(html, /data-compare-receipt-product/);
 assert.match(html, /Mercadona, DIA, Carrefour, Alcampo, Ahorramas, Aldi e Hipercor/);
 assert.match(html, /data-view="settings"/);
+assert.match(html, /data-edit=/);
+assert.match(html, /method: receiptId \? "PUT" : "POST"/);
+assert.match(html, /Gasto por supermercado/);
 assert.doesNotMatch(html, /Mercadona, Lidl/);
 const script = html.split("<script>")[1].split("</script>")[0];
 const constants = script.slice(script.indexOf("var CATEGORY_COLORS"), script.indexOf("var els ="));
@@ -125,10 +128,40 @@ assert.equal(parsedHipercor.date, "2026-08-17");
 assert.equal(parsedHipercor.total, 18.84);
 assert.equal(parsedHipercor.items.length, 5);
 assert.equal(parsedHipercor.items[0].name, "VINAGRE VINO BLANCO");
-assert.equal(parsedHipercor.items[3].name, "KINDER MAXI 10 UNIDA");
+assert.equal(parsedHipercor.items[3].name, "KINDER MAXI 10 UNIDADES");
 assert.equal(parsedHipercor.items[3].quantity, 2);
 assert.equal(parsedHipercor.items[3].unitPrice, 3.99);
+assert.equal(parsedHipercor.items[1].category, "Dulces y snacks");
+assert.equal(parsedHipercor.items[2].category, "Lácteos");
+assert.equal(parsedHipercor.items[3].category, "Dulces y snacks");
+assert.equal(parsedHipercor.items[4].category, "Limpieza");
 assert.ok(!parsedHipercor.items.some((item) => /Precio unitario|IVA|EFECTIVO/i.test(item.name)));
+
+const hipercorMobileOcr = [
+  "HIPERCOR",
+  "17/ago/26 20:43",
+  "VINAGRE VINO EL.ANCO 18 0,69",
+  "MENTA CON CHOCOLATE 18 3,45",
+  "BATIDO COLACAC SHAKE 18 1,67",
+  "KINDER MAXI 1(1 UNIDA 28 7,98",
+  "Precio unitario 3,99",
+  "CUCARACHICIDA 1C 5,05",
+  "SUBTOTAL 18,84",
+  "TOTAL COMPRA EUR 18,84"
+].join("\n");
+
+const parsedHipercorMobile = parseReceiptText(hipercorMobileOcr);
+assert.equal(parsedHipercorMobile.items.length, 5);
+assert.equal(parsedHipercorMobile.items[0].name, "VINAGRE VINO BLANCO");
+assert.equal(parsedHipercorMobile.items[0].category, "Platos y conservas");
+assert.equal(parsedHipercorMobile.items[1].name, "MENTA CON CHOCOLATE");
+assert.equal(parsedHipercorMobile.items[2].name, "BATIDO COLACAO SHAKE");
+assert.equal(parsedHipercorMobile.items[3].name, "KINDER MAXI 10 UNIDADES");
+assert.equal(parsedHipercorMobile.items[3].quantity, 2);
+assert.equal(parsedHipercorMobile.items[3].unitPrice, 3.99);
+assert.equal(parsedHipercorMobile.items[3].category, "Dulces y snacks");
+assert.equal(parsedHipercorMobile.items[4].name, "CUCARACHICIDA");
+assert.equal(parsedHipercorMobile.items[4].category, "Limpieza");
 
 const pdfLines = groupPdfLines([
   { str: "PANALES TALLA 6", transform: [1, 0, 0, 1, 20, 700], width: 110 },
