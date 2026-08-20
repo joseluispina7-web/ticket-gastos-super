@@ -456,6 +456,35 @@
       text-transform: uppercase;
     }
     .product-count { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .receipt-products-row td {
+      padding-top: 0;
+      background: rgba(242, 238, 229, 0.48);
+    }
+    .receipt-products {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 5px 0 8px;
+    }
+    .receipt-products > span {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+      min-width: 0;
+      padding-right: 8px;
+      border-right: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .receipt-compare {
+      padding: 3px 0;
+      background: transparent;
+      color: var(--forest);
+      font-size: 11px;
+      font-weight: 900;
+    }
 
     .empty-state {
       display: grid;
@@ -729,7 +758,7 @@
         <div class="panel-head">
           <div>
             <h2>Comparador de precios</h2>
-            <p id="comparisonTimestamp" class="subtle">Mercadona, Lidl y DIA</p>
+            <p id="comparisonTimestamp" class="subtle">Mercadona, Lidl, DIA, Carrefour, Alcampo y Ahorramas. Pendientes: Hipercor, Supercor, Aldi y Eroski</p>
           </div>
         </div>
         <form id="compareForm" class="compare-search">
@@ -1272,7 +1301,7 @@
       renderLegend(summary.categories, summary.kpis.categoryTotal);
       renderTrend(data.trend);
       renderTopProducts(summary.topProducts);
-      renderReceipts(data.receipts);
+      renderReceipts(data.receipts, data.items);
     }
 
     function renderAnnual(annual, trend) {
@@ -1361,15 +1390,27 @@
         }).join("") + "</tbody></table>";
     }
 
-    function renderReceipts(receipts) {
+    function renderReceipts(receipts, items) {
       if (!receipts || !receipts.length) {
         els.receiptList.innerHTML = "<div class=\"empty-state\"><strong>Sin tickets</strong><span>Importa el primero para empezar el historico.</span></div>";
         return;
       }
+      var productsByReceipt = (items || []).reduce(function(grouped, item) {
+        var receiptId = String(item.receipt_id || "");
+        if (!grouped[receiptId]) grouped[receiptId] = [];
+        grouped[receiptId].push(item);
+        return grouped;
+      }, {});
       els.receiptList.innerHTML = "<table><thead><tr><th>Tienda</th><th>Total</th><th></th></tr></thead><tbody>" +
         receipts.map(function(receipt) {
+          var receiptProducts = productsByReceipt[String(receipt.id)] || [];
+          var productRow = receiptProducts.length
+            ? "<tr class=\"receipt-products-row\"><td colspan=\"3\"><div class=\"receipt-products\">" + receiptProducts.map(function(item) {
+                return "<span><b>" + escapeHtml(item.name) + "</b><button class=\"receipt-compare\" data-compare-receipt-product=\"" + escapeHtml(item.name) + "\">Comparar</button></span>";
+              }).join("") + "</div></td></tr>"
+            : "";
           return "<tr><td><strong>" + escapeHtml(receipt.store) + "</strong><br><span class=\"muted\">" + escapeHtml(receipt.receipt_date) + "</span></td><td class=\"amount\">" + escapeHtml(euro(receipt.total)) + "</td><td>" +
-            "<button class=\"mini-button\" data-delete=\"" + escapeHtml(receipt.id) + "\" aria-label=\"Eliminar ticket\" title=\"Eliminar ticket\">&times;</button></td></tr>";
+            "<button class=\"mini-button\" data-delete=\"" + escapeHtml(receipt.id) + "\" aria-label=\"Eliminar ticket\" title=\"Eliminar ticket\">&times;</button></td></tr>" + productRow;
         }).join("") + "</tbody></table>";
     }
 
@@ -1903,6 +1944,13 @@
       renderReviewRows();
     });
     els.receiptList.addEventListener("click", function(event) {
+      var compareButton = event.target.closest("[data-compare-receipt-product]");
+      if (compareButton) {
+        els.compareQuery.value = compareButton.dataset.compareReceiptProduct;
+        switchView("comparator");
+        compareProducts();
+        return;
+      }
       var id = event.target.dataset.delete;
       if (id) deleteReceipt(id);
     });

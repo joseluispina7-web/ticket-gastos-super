@@ -18,7 +18,7 @@ Read this file and `README.md` before changing the project. The GitHub repositor
 
 - `web/index.html`: complete client, styles, PDF text extraction, Tesseract OCR, parsing and review UI.
 - `server/index.js`: Sites/Worker backend, authentication, D1 schema, receipts and dashboard API.
-- `server/comparison.js`: independent Mercadona, Lidl and DIA adapters, matching, normalization and short-lived cache.
+- `server/comparison.js`: independent adapters for six active stores, visible upcoming sources, matching, normalization and short-lived cache.
 - `scripts/build.mjs`: creates the deployable `dist/` tree.
 - `scripts/test_comparison.mjs`: deterministic adapter and price-normalization fixtures.
 - `.openai/hosting.json`: persistent Sites project ID and D1 binding.
@@ -37,7 +37,9 @@ Read this file and `README.md` before changing the project. The GitHub repositor
 
 The production project ID is `appgprj_6a81a21462a081918377a50db825e757`. Do not replace it or call `create_site` merely because the current account cannot access it.
 
-Publishing to the existing URL requires the ChatGPT/Sites account that owns the project, or an editor in the same workspace:
+Publishing to the existing URL requires the ChatGPT/Sites account that owns the project, or an editor in the same workspace. If two accounts are in different personal workspaces, GitHub access does not grant Sites publishing access. In that case, use the owner account for the current URL or plan a GitHub Actions deployment to Cloudflare Worker/D1 for account-independent publishing.
+
+From the owner account, add the second account as a Sites editor when both accounts belong to the same ChatGPT workspace, then verify that `get_site` reports the second account with the `editor` role. Once verified:
 
 1. Run `node scripts/check.mjs` to generate and validate `dist/`.
 2. Ask Sites for a short-lived source repository write credential for the existing project.
@@ -50,11 +52,12 @@ If Sites returns `project_not_found`, continue development through GitHub but do
 
 ## Current comparison behavior
 
-- Active sources: Mercadona, Lidl Spain and DIA.
-- All three requests run independently; one failure must not fail the entire comparison.
+- Active sources: Mercadona, Lidl Spain, DIA, Carrefour, Alcampo and Ahorramas.
+- All six requests run independently; one failure must not fail the entire comparison.
+- Upcoming sources shown in the UI: Hipercor, Supercor, Aldi and Eroski.
 - Results include source links, retrieval time, pack price and normalized price when available.
 - Shopping-plan rows are private by `user_id` in D1.
-- Alcampo and Carrefour remain explicitly pending because their storefronts block simple HTTP clients.
+- Matching includes product concepts and aliases for common naming differences between stores.
 - Source endpoints can change. Update one adapter without coupling it to receipt parsing or another store.
 
 ## Next product work

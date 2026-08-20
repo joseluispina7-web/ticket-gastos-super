@@ -3,6 +3,9 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const html = await readFile(resolve("web", "index.html"), "utf8");
+assert.match(html, /data-compare-receipt-product/);
+assert.match(html, /Carrefour, Alcampo y Ahorramas/);
+assert.match(html, /Hipercor, Supercor, Aldi y Eroski/);
 const script = html.split("<script>")[1].split("</script>")[0];
 const constants = script.slice(script.indexOf("var CATEGORY_COLORS"), script.indexOf("var els ="));
 const functions = script.slice(script.indexOf("function groupPdfLines"), script.indexOf("function categoryOptions"));
