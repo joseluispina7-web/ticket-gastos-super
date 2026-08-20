@@ -7,6 +7,9 @@ const BROWSER_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Appl
 const MERCADONA_APP = "7UZJKL1DJ0";
 const MERCADONA_KEY = "9d8f2e39e90df472b4f2e559a116fe17";
 const MERCADONA_INDEX = "products_prod_bcn1_es";
+const ALDI_APP = "L9KNU74IO7";
+const ALDI_KEY = "83df5acd172c42ab174afa4583232b5d";
+const ALDI_INDEX = "an_prd_es_es_pen_products2";
 
 const STORE_META = [
   { key: "mercadona", label: "Mercadona", mode: "Online", homeUrl: "https://tienda.mercadona.es" },
@@ -15,16 +18,17 @@ const STORE_META = [
   { key: "carrefour", label: "Carrefour", mode: "Online", homeUrl: "https://www.carrefour.es/supermercado" },
   { key: "alcampo", label: "Alcampo", mode: "Online", homeUrl: "https://www.compraonline.alcampo.es" },
   { key: "ahorramas", label: "Ahorramas", mode: "Online", homeUrl: "https://www.ahorramas.com" },
+  { key: "aldi", label: "Aldi", mode: "Tienda", homeUrl: "https://www.aldi.es" },
 ];
 
 const UPCOMING_STORES = [
   { key: "hipercor", label: "Hipercor", reason: "pendiente de adaptar el catalogo de El Corte Ingles/Supercor" },
   { key: "supercor", label: "Supercor", reason: "pendiente de adaptar el catalogo de El Corte Ingles/Supercor" },
-  { key: "aldi", label: "Aldi", reason: "sin tienda online publica de precios completos en Espana" },
   { key: "eroski", label: "Eroski", reason: "pendiente de fixture y adaptador regional" },
 ];
 
 const STOP_WORDS = new Set(["a", "al", "de", "del", "el", "en", "la", "las", "los", "para", "por", "un", "una", "y"]);
+const PACKAGE_UNIT_PATTERN = "(?:kg|kilos?|kilogramos?|g|gr|gramos?|l|litros?|ml|mililitros?|cl|centilitros?|uds?|unidades?|unidad)";
 const PRODUCT_CONCEPTS = [
   {
     id: "concepto_queso_untar",
@@ -55,12 +59,19 @@ function cleanText(value) {
     .trim();
 }
 
+function removePackageNoise(value) {
+  return String(value || "")
+    .replace(new RegExp(`\\b\\d+(?:[.,]\\d+)?\\s*x\\s*\\d+(?:[.,]\\d+)?\\s*${PACKAGE_UNIT_PATTERN}\\b`, "gi"), " ")
+    .replace(new RegExp(`\\b\\d+(?:[.,]\\d+)?\\s*${PACKAGE_UNIT_PATTERN}\\b`, "gi"), " ")
+    .replace(new RegExp(`\\b(?:pack|paquete|caja|bolsa|botella|brik|brick|lata|bote)\\s*(?:de)?\\s*\\d+(?:[.,]\\d+)?\\b`, "gi"), " ");
+}
+
 function storeMeta(key) {
   return STORE_META.find((store) => store.key === key);
 }
 
 function conceptTokens(value) {
-  let text = cleanText(value);
+  let text = cleanText(removePackageNoise(value));
   const concepts = new Set();
   for (const concept of PRODUCT_CONCEPTS) {
     for (const phrase of concept.phrases) {
@@ -87,16 +98,19 @@ export function queryVariants(value) {
   const query = String(value || "").trim();
   const normalized = cleanText(query);
   const variants = [query];
+  const withoutPackage = cleanText(removePackageNoise(query));
+  if (withoutPackage && withoutPackage !== normalized) variants.push(withoutPackage);
   for (const concept of PRODUCT_CONCEPTS) {
-    const matchedPhrase = concept.phrases.find((phrase) => (` ${normalized} `).includes(` ${phrase} `));
+    const variantBase = withoutPackage || normalized;
+    const matchedPhrase = concept.phrases.find((phrase) => (` ${variantBase} `).includes(` ${phrase} `));
     if (!matchedPhrase) continue;
     for (const alias of concept.searchAliases) {
-      const variant = normalized.replace(matchedPhrase, cleanText(alias)).replace(/\s+/g, " ").trim();
-      if (variant !== normalized) variants.push(variant);
+      const variant = variantBase.replace(matchedPhrase, cleanText(alias)).replace(/\s+/g, " ").trim();
+      if (variant !== normalized && variant !== withoutPackage) variants.push(variant);
     }
     break;
   }
-  return [...new Set(variants.filter(Boolean))].slice(0, 3);
+  return [...new Set(variants.filter(Boolean))].slice(0, 5);
 }
 
 function roundMoney(value, digits = 3) {
@@ -315,6 +329,28 @@ export function mapDiaItem(item) {
   });
 }
 
+export function mapAldiHit(hit) {
+  const store = storeMeta("aldi");
+  const primaryAsset = Array.isArray(hit.assets) ? hit.assets.find((asset) => asset.type === "primary") || hit.assets[0] : null;
+  const category = hit.hierarchicalCategories && Array.isArray(hit.hierarchicalCategories.lvl1)
+    ? String(hit.hierarchicalCategories.lvl1[0] || "").split(">").pop().trim()
+    : hit.mainCategoryID;
+  return offerShape(store, {
+    id: hit.objectID || hit.productSlug,
+    name: hit.name,
+    brand: hit.brandName,
+    category,
+    price: hit.currentPrice && hit.currentPrice.priceValue,
+    packageLabel: hit.salesUnit,
+    available: hit.isAvailable !== false && hit.isRecall !== true,
+    imageUrl: primaryAsset && primaryAsset.url,
+    productUrl: hit.productSlug ? `https://www.aldi.es/producto/${hit.productSlug}.html` : store.homeUrl,
+    sourceUpdatedAt: hit.currentPrice && hit.currentPrice.validFrom
+      ? new Date(Number(hit.currentPrice.validFrom) * 1000).toISOString()
+      : null,
+  });
+}
+
 export function mapCarrefourItem(item) {
   const store = storeMeta("carrefour");
   const unit = normalizeComparisonUnit(item.unit_short_name || item.measure_unit);
@@ -467,12 +503,28 @@ async function searchMercadona(query, limit, fetcher) {
 }
 
 async function searchLidl(query, limit, fetcher) {
-  const params = new URLSearchParams({ q: query, assortment: "ES", locale: "es_ES", version: "2.0" });
+  const params = new URLSearchParams({ q: query, assortment: "ES", locale: "es_ES", version: "v2.0.0", store: "1" });
   const response = await fetchWithTimeout(fetcher, `https://www.lidl.es/q/api/search?${params}`, {
     headers: { accept: "*/*", "user-agent": USER_AGENT },
   });
   const data = await response.json();
   return (data.items || []).slice(0, Math.max(limit * 4, 24)).map(mapLidlItem);
+}
+
+async function searchAldi(query, limit, fetcher) {
+  const url = `https://${ALDI_APP}-dsn.algolia.net/1/indexes/${ALDI_INDEX}/query`;
+  const response = await fetchWithTimeout(fetcher, url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-algolia-api-key": ALDI_KEY,
+      "x-algolia-application-id": ALDI_APP,
+      "user-agent": USER_AGENT,
+    },
+    body: JSON.stringify({ query, hitsPerPage: Math.max(limit * 4, 24) }),
+  });
+  const data = await response.json();
+  return (data.hits || []).map(mapAldiHit);
 }
 
 async function searchDia(query, limit, fetcher) {
@@ -600,6 +652,7 @@ export async function comparePrices(query, options = {}) {
     searchCarrefour,
     searchAlcampo,
     (query, size, source) => searchExpanded(searchAhorramas, query, size, source),
+    (query, size, source) => searchExpanded(searchAldi, query, size, source),
   ];
   const results = await Promise.allSettled(searches.map((search) => search(cleanQuery, limit, fetcher)));
   const stores = STORE_META.map((meta, index) => {

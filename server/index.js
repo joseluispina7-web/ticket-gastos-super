@@ -502,6 +502,8 @@ function safeProductUrl(value) {
       "static.carrefour.es",
       "www.compraonline.alcampo.es",
       "www.ahorramas.com",
+      "www.aldi.es",
+      "s7g10.scene7.com",
     ];
     return url.protocol === "https:" && allowed.includes(url.hostname) ? url.toString().slice(0, 700) : "";
   } catch (_error) {
@@ -521,6 +523,7 @@ async function saveShoppingPlanItem(request, env) {
     carrefour: "Carrefour",
     alcampo: "Alcampo",
     ahorramas: "Ahorramas",
+    aldi: "Aldi",
   };
   const storeKey = String(offer.storeKey || "").toLowerCase();
   const storeName = stores[storeKey];

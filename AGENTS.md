@@ -18,7 +18,7 @@ Read this file and `README.md` before changing the project. The GitHub repositor
 
 - `web/index.html`: complete client, styles, PDF text extraction, Tesseract OCR, parsing and review UI.
 - `server/index.js`: Sites/Worker backend, authentication, D1 schema, receipts and dashboard API.
-- `server/comparison.js`: independent adapters for six active stores, visible upcoming sources, matching, normalization and short-lived cache.
+- `server/comparison.js`: independent adapters for seven active stores, visible upcoming sources, matching, normalization and short-lived cache.
 - `scripts/build.mjs`: creates the deployable `dist/` tree.
 - `scripts/test_comparison.mjs`: deterministic adapter and price-normalization fixtures.
 - `.openai/hosting.json`: persistent Sites project ID and D1 binding.
@@ -52,12 +52,13 @@ If Sites returns `project_not_found`, continue development through GitHub but do
 
 ## Current comparison behavior
 
-- Active sources: Mercadona, Lidl Spain, DIA, Carrefour, Alcampo and Ahorramas.
-- All six requests run independently; one failure must not fail the entire comparison.
-- Upcoming sources shown in the UI: Hipercor, Supercor, Aldi and Eroski.
+- Active sources: Mercadona, Lidl Spain, DIA, Carrefour, Alcampo, Ahorramas and Aldi.
+- All seven requests run independently; one failure must not fail the entire comparison.
+- Upcoming sources shown in the UI: Hipercor, Supercor and Eroski.
 - Results include source links, retrieval time, pack price and normalized price when available.
 - Shopping-plan rows are private by `user_id` in D1.
 - Matching includes product concepts and aliases for common naming differences between stores.
+- Matching ignores package-size noise such as `1 l`, `500 g` or `pack de 6`, but must preserve product constraints such as `talla 6`.
 - Source endpoints can change. Update one adapter without coupling it to receipt parsing or another store.
 
 ## Next product work

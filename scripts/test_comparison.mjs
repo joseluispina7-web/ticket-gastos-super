@@ -23,8 +23,11 @@ assert.equal(productMatchScore("panales talla 6", "Panales de agua talla S 6 uni
 assert.ok(productMatchScore("queso de untar", "Crema de queso natural 250 g") > 0.9);
 assert.ok(productMatchScore("picos de pan", "Picos gourmet 130 g") > 0.9);
 assert.equal(productMatchScore("picos de pan", "Pan de picos integral"), 0);
+assert.ok(productMatchScore("leche entera 1 l", "Leche entera") > 0.9);
+assert.ok(productMatchScore("leche entera 1 l", "Leche semidesnatada") < 0.55);
 assert.deepEqual(queryVariants("queso de untar"), ["queso de untar", "queso untar", "crema de queso"]);
 assert.deepEqual(queryVariants("queso de untar natural"), ["queso de untar natural", "queso untar natural", "crema de queso natural"]);
+assert.deepEqual(queryVariants("leche entera 1 l"), ["leche entera 1 l", "leche entera"]);
 
 const mercadonaHit = {
   id: "m1",
@@ -61,6 +64,20 @@ const diaItem = {
   units_in_stock: 10,
   url: "/infantil/p/d1",
   prices: { price: 8.02, price_per_unit: 0.29, measure_unit: "UNIDAD" },
+};
+
+const aldiHit = {
+  objectID: "al1",
+  name: "Panales bebe talla 6 Aldi 34 uds",
+  brandName: "Mamia",
+  isAvailable: true,
+  isRecall: false,
+  productSlug: "panales-bebe-talla-6-aldi-340000",
+  currentPrice: { priceValue: 8.84, validFrom: 1783461600 },
+  salesUnit: "34 unidades",
+  mainCategoryID: "bebe-e-infantil",
+  hierarchicalCategories: { lvl1: ["Bebe e infantil > Panales"] },
+  assets: [{ type: "primary", url: "https://s7g10.scene7.com/is/image/aldinord/test" }],
 };
 
 const carrefourItem = {
@@ -111,8 +128,13 @@ assert.equal(parseAlcampoHtml(alcampoHtml)[0].normalizedPrice, 0.21);
 assert.equal(parseAhorramasHtml(ahorramasHtml)[0].normalizedPrice, 0.22);
 
 async function fixtureFetch(url) {
-  if (String(url).includes("algolia.net")) return new Response(JSON.stringify({ hits: [mercadonaHit] }));
-  if (String(url).includes("lidl.es")) return new Response(JSON.stringify({ items: [lidlItem] }));
+  if (String(url).includes("L9KNU74IO7-dsn.algolia.net")) return new Response(JSON.stringify({ hits: [aldiHit] }));
+  if (String(url).includes("7UZJKL1DJ0-dsn.algolia.net")) return new Response(JSON.stringify({ hits: [mercadonaHit] }));
+  if (String(url).includes("lidl.es")) {
+    assert.match(String(url), /version=v2\.0\.0/);
+    assert.match(String(url), /store=1/);
+    return new Response(JSON.stringify({ items: [lidlItem] }));
+  }
   if (String(url).includes("dia.es")) return new Response(JSON.stringify({ search_items: [diaItem] }));
   if (String(url).includes("api.empathy.co")) return new Response(JSON.stringify({ catalog: { content: [carrefourItem] } }));
   if (String(url).includes("compraonline.alcampo.es")) return new Response(alcampoHtml, { headers: { "content-type": "text/html" } });
@@ -121,10 +143,10 @@ async function fixtureFetch(url) {
 }
 
 const comparison = await comparePrices("panales talla 6", { fetcher: fixtureFetch, cache: false, limit: 3 });
-assert.deepEqual(comparison.stores.map((store) => store.status), ["ok", "ok", "ok", "ok", "ok", "ok"]);
+assert.deepEqual(comparison.stores.map((store) => store.status), ["ok", "ok", "ok", "ok", "ok", "ok", "ok"]);
 assert.equal(comparison.comparison.unit, "unit");
 assert.equal(comparison.comparison.cheapest.store, "Lidl");
 assert.equal(comparison.comparison.cheapest.offer.normalizedPrice, 0.197);
-assert.deepEqual(comparison.upcomingStores.map((store) => store.key), ["hipercor", "supercor", "aldi", "eroski"]);
+assert.deepEqual(comparison.upcomingStores.map((store) => store.key), ["hipercor", "supercor", "eroski"]);
 
 console.log("Price comparison tests passed");

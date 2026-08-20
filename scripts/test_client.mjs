@@ -4,8 +4,9 @@ import { resolve } from "node:path";
 
 const html = await readFile(resolve("web", "index.html"), "utf8");
 assert.match(html, /data-compare-receipt-product/);
-assert.match(html, /Carrefour, Alcampo y Ahorramas/);
-assert.match(html, /Hipercor, Supercor, Aldi y Eroski/);
+assert.match(html, /Mercadona, Lidl, DIA, Carrefour, Alcampo, Ahorramas y Aldi/);
+assert.match(html, /Ahorramas y Aldi/);
+assert.match(html, /Hipercor, Supercor y Eroski/);
 const script = html.split("<script>")[1].split("</script>")[0];
 const constants = script.slice(script.indexOf("var CATEGORY_COLORS"), script.indexOf("var els ="));
 const functions = script.slice(script.indexOf("function groupPdfLines"), script.indexOf("function categoryOptions"));

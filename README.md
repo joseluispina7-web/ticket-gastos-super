@@ -16,7 +16,7 @@ https://ticket-gastos-super.erpozi.chatgpt.site
 - Revision manual antes de guardar.
 - Categorias aprendidas por usuario.
 - Dashboard mensual con total, tickets, productos unicos, categoria top, donut de categorias, historico, total anual y top productos.
-- Comparador con precios actuales de Mercadona, Lidl, DIA, Carrefour, Alcampo y Ahorramas; Hipercor, Supercor, Aldi y Eroski quedan visibles como proximas fuentes.
+- Comparador con precios actuales de Mercadona, Lidl, DIA, Carrefour, Alcampo, Ahorramas y Aldi; Hipercor, Supercor y Eroski quedan visibles como proximas fuentes.
 - Normalizacion por `EUR/kg`, `EUR/L` o `EUR/unidad`, con enlace y fecha de consulta.
 - Plan de compra privado por usuario, con tienda, precio estimado y ahorro comparable.
 - Estado vacio real: la aplicacion no muestra supermercados ni importes inventados.
@@ -29,7 +29,7 @@ https://ticket-gastos-super.erpozi.chatgpt.site
 - `server/comparison.js`: adaptadores, normalizacion, similitud y comparacion de precios.
 - `scripts/build.mjs`: genera el arbol desplegable `dist/`.
 - `scripts/test_client.mjs`: valida el parser, las categorias y la reconstruccion de lineas de PDF.
-- `scripts/test_comparison.mjs`: valida formatos, sinonimos, las seis fuentes activas con fixtures y las proximas fuentes visibles.
+- `scripts/test_comparison.mjs`: valida formatos, sinonimos, las siete fuentes activas con fixtures y las proximas fuentes visibles.
 - `.openai/hosting.json`: configuracion de Sites y D1.
 
 ## Trabajar desde cualquier ordenador
@@ -62,7 +62,7 @@ Para una publicacion realmente independiente de una cuenta concreta de ChatGPT, 
 
 La fase 2 ya incluye tres vistas: resumen de tickets, comparador y plan de compra. El backend trata cada supermercado como una fuente independiente, conserva la fecha de consulta y tolera que una tienda falle sin ocultar los resultados validos de las demas.
 
-Fuentes activas verificadas el 17 de agosto de 2026:
+Fuentes activas verificadas el 20 de agosto de 2026:
 
 - Mercadona mediante su indice publico de busqueda.
 - Lidl Espana mediante su buscador publico.
@@ -70,15 +70,15 @@ Fuentes activas verificadas el 17 de agosto de 2026:
 - Carrefour mediante el indice estructurado del proveedor de su buscador.
 - Alcampo mediante el estado de catalogo publicado en su pagina de resultados.
 - Ahorramas mediante las fichas estructuradas de su buscador online.
+- Aldi mediante su indice publico de Algolia, con region de peninsula.
 
 Los precios pueden depender de zona, disponibilidad y formato. La interfaz muestra el precio del paquete y, cuando la fuente aporta cantidad suficiente, su equivalente en `EUR/kg`, `EUR/L` o `EUR/unidad`. No se inventan resultados cuando una fuente no responde.
 
-El adaptador de Alcampo esta activo, pero su proteccion de AWS puede exigir una comprobacion de navegador y rechazar una consulta hecha desde el servidor. En ese caso la tienda aparece como no disponible, sin contaminar los resultados de las otras cinco. Para estabilizarla en produccion se necesitara un navegador gestionado o un servicio de extraccion autorizado.
+El adaptador de Alcampo esta activo, pero su proteccion de AWS puede exigir una comprobacion de navegador y rechazar una consulta hecha desde el servidor. En ese caso la tienda aparece como no disponible, sin contaminar los resultados de las otras seis. Para estabilizarla en produccion se necesitara un navegador gestionado o un servicio de extraccion autorizado.
 
 Proximas fuentes visibles en el comparador:
 
 - Hipercor y Supercor: pendientes de adaptar el catalogo de El Corte Ingles/Supercor.
-- Aldi: pendiente porque ALDI Espana no ofrece una tienda online publica con precios completos de supermercado.
 - Eroski: pendiente de fixture y adaptador regional.
 
 La comparacion final tambien tendra en cuenta:
@@ -89,7 +89,7 @@ La comparacion final tambien tendra en cuenta:
 - Similitud real del producto, evitando comparar variedades distintas solo porque comparten una palabra.
 - Enlace a la ficha original y aviso cuando un precio no se pueda verificar.
 
-El emparejamiento reconoce conceptos equivalentes como `queso de untar`, `crema de queso` y `queso crema`, y prueba una busqueda alternativa en las fuentes que la necesitan. Tambien aplica restricciones de talla y evita tratar `pan de picos` como si fueran `picos de pan`.
+El emparejamiento reconoce conceptos equivalentes como `queso de untar`, `crema de queso` y `queso crema`, y prueba una busqueda alternativa en las fuentes que la necesitan. Tambien elimina ruido de envase como `1 l`, `500 g` o `pack de 6` sin perder restricciones reales como `talla 6`, aplica restricciones de talla y evita tratar `pan de picos` como si fueran `picos de pan`.
 
 Las ofertas personales se abordaran mediante OAuth o una integracion oficial cuando el supermercado la ofrezca. La aplicacion no debe pedir ni guardar la contrasena de Carrefour, Alcampo o Ahorramas.
 
@@ -130,8 +130,8 @@ Mantener:
 - Pantalla de revision antes de guardar.
 - Categorias aprendidas por usuario.
 - Historico por mes y ano.
-- Comparador real de Mercadona, Lidl, DIA, Carrefour, Alcampo y Ahorramas por kilo, litro o unidad.
-- Fuentes pendientes visibles: Hipercor, Supercor, Aldi y Eroski.
+- Comparador real de Mercadona, Lidl, DIA, Carrefour, Alcampo, Ahorramas y Aldi por kilo, litro o unidad.
+- Fuentes pendientes visibles: Hipercor, Supercor y Eroski.
 - Plan de compra persistente por usuario.
 
 Archivos clave:
