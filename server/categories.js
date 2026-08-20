@@ -34,7 +34,7 @@ export const CATEGORY_ALIASES = {
 export const PRODUCT_CATEGORY_RULES = [
   { category: "Salsas", terms: ["salsa", "mayonesa", "ketchup", "mostaza", "alioli", "barbacoa", "pesto", "sofrito", "tomate frito"] },
   { category: "Pescado", terms: ["salmon", "merluza", "pescadilla", "bacalao", "atun", "bonito", "melva", "pota", "gamba", "langostino", "calamar", "sardina", "sepia", "mejillon", "lubina", "dorada", "rape", "pulpo", "surimi", "anchoa", "boqueron", "trucha", "caballa", "chipiron", "marisco", "pescado"] },
-  { category: "Charcutería", terms: ["pechuga lonchas", "jamon", "pate", "chopped", "fuet", "salami", "mortadela", "charcuteria", "embutido", "lacon"] },
+  { category: "Charcutería", terms: ["pechuga lonchas", "fiambre", "jamon", "pate", "chopped", "fuet", "salami", "mortadela", "charcuteria", "embutido", "lacon"] },
   { category: "Carne", terms: ["costill*", "pechuga", "albondig*", "solomillo", "cuarto trasero", "pollo", "pavo", "ternera", "cerdo", "lomo", "carne", "burger", "hamburguesa", "salchicha", "chorizo", "bacon", "conejo", "chuleta", "entrecot", "secreto iberico", "presa iberica", "magro"] },
   { category: "Bebidas", terms: ["proteina beber", "agua", "cerveza", "vino", "refresco", "cola", "zumo", "cafe", "bebida", "tonica", "sidra", "licor"] },
   { category: "Platos y conservas", terms: ["crema de calabaza", "crema de verdura", "gazpacho", "salmorejo", "vinagre", "aceite oliva", "aceite girasol", "conserva", "garbanzo", "lenteja", "fabada", "caldo", "sopa"] },
@@ -55,9 +55,10 @@ export const PRODUCT_CATEGORY_RULES = [
 ];
 
 const CATALOG_CATEGORY_RULES = [
+  { category: "Congelados", terms: ["congelado*", "ultracongelado*"] },
+  { category: "Charcutería", terms: ["charcuteria", "embutido*", "fiambre*", "jamon*", "pavo y pollo", "pollo pavo y jamon cocido"] },
   { category: "Pescado", terms: ["pescad*", "marisco*", "ahumado*", "surimi"] },
   { category: "Carne", terms: ["carne*", "carniceria", "aves", "pollo", "vacuno", "cerdo", "cordero", "conejo"] },
-  { category: "Charcutería", terms: ["charcuteria", "embutido*", "fiambre*", "jamon*"] },
   { category: "Lácteos", terms: ["lacteo*", "leche", "yogur*", "queso*"] },
   { category: "Fruta", terms: ["fruta*"] },
   { category: "Verdura", terms: ["verdura*", "hortaliza*", "patata*"] },
@@ -72,7 +73,6 @@ const CATALOG_CATEGORY_RULES = [
   { category: "Dulces y snacks", terms: ["dulce*", "chocolate*", "galleta*", "snack*", "caramelo*", "helado*"] },
   { category: "Frutos secos", terms: ["fruto* seco*"] },
   { category: "Huevos", terms: ["huevo*"] },
-  { category: "Congelados", terms: ["congelado*"] },
   { category: "Mascotas", terms: ["mascota*", "perro*", "gato*"] },
   { category: "Hogar", terms: ["hogar", "menaje", "papel y bolsas"] },
 ];

@@ -1,3 +1,5 @@
+import { classifyCatalogProduct, classifyProductName } from "./categories.js";
+
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 80;
 const SEARCH_TIMEOUT_MS = 12000;
@@ -255,8 +257,74 @@ export function productMatchScore(query, name) {
   return Math.max(0, Math.min(score, 1));
 }
 
+const EXCLUSIVE_PRODUCT_GROUPS = [
+  ["pollo", "pavo", "cerdo", "ternera", "cordero", "conejo"],
+  ["pechuga", "solomillo", "costilla", "ala", "jamoncito", "contramuslo", "muslo"],
+  ["entera", "semidesnatada", "desnatada"],
+];
+const PRODUCT_FORMATS = [
+  { pattern: /\bfilet\w*\b/, label: "filete" },
+  { pattern: /\blonch\w*\b/, label: "lonchas" },
+  { pattern: /\benter\w*\b/, label: "entero" },
+  { pattern: /\bpicad\w*\b/, label: "picado" },
+  { pattern: /\b(?:taco|tacos)\b/, label: "tacos" },
+  { pattern: /\b(?:tira|tiras)\b/, label: "tiras" },
+  { pattern: /\b(?:burger|hamburguesa|hamburguesas)\b/, label: "hamburguesa" },
+];
+const RESTRICTIVE_CATEGORIES = new Set(["Charcutería", "Congelados"]);
+
+function detectedFormat(value) {
+  const normalized = cleanText(value);
+  return PRODUCT_FORMATS.find((format) => format.pattern.test(normalized))?.label || "";
+}
+
+function candidateCategory(offer) {
+  const catalog = classifyCatalogProduct(offer.category, "");
+  const byName = classifyProductName(offer.name);
+  if (RESTRICTIVE_CATEGORIES.has(catalog.category)) return catalog.category;
+  return byName.category !== "Otros" ? byName.category : catalog.category;
+}
+
+function hasCompatibleIntent(query, offer) {
+  const wanted = cleanText(removePackageNoise(query));
+  const candidate = cleanText(`${offer.name || ""} ${offer.category || ""}`);
+  const preparedPattern = /\b(?:villaroy|fiambre\w*|embutid\w*|lonch\w*|brasead\w*|empanad\w*|rebozad\w*|elaborad\w*|precocinad\w*|conserva\w*|pate\w*|cocid\w*|asado|asada|horno)\b|\b9\d\s*%/;
+
+  for (const group of EXCLUSIVE_PRODUCT_GROUPS) {
+    const wantedTerms = group.filter((term) => (` ${wanted} `).includes(` ${term} `));
+    if (!wantedTerms.length) continue;
+    if (!wantedTerms.some((term) => (` ${candidate} `).includes(` ${term} `))) return false;
+    if (group.some((term) => !wantedTerms.includes(term) && (` ${candidate} `).includes(` ${term} `))) return false;
+  }
+
+  const wantedFormat = detectedFormat(wanted);
+  const offeredFormat = detectedFormat(candidate);
+  if (wantedFormat && offeredFormat && wantedFormat !== offeredFormat) return false;
+  if (wantedFormat && !offeredFormat) return false;
+
+  if (!/\blote\b/.test(wanted) && /\blote\b/.test(candidate)) return false;
+  if (!/\btrocead\w*\b/.test(wanted) && /\btrocead\w*\b/.test(candidate)) return false;
+  if (/\bpechuga\b/.test(wanted) && /\bsin pechuga\b/.test(candidate)) return false;
+  if (!/\bcongelad\w*\b/.test(wanted) && /\bcongelad\w*\b/.test(candidate)) return false;
+
+  const wantedCategory = classifyProductName(query).category;
+  if (["Carne", "Pescado"].includes(wantedCategory) && !preparedPattern.test(wanted) && preparedPattern.test(candidate)) return false;
+  const offeredCategory = candidateCategory(offer);
+  return wantedCategory === "Otros" || offeredCategory === "Otros" || wantedCategory === offeredCategory;
+}
+
+export function offerMatchScore(query, offer) {
+  const lexicalScore = productMatchScore(query, offer && offer.name);
+  if (lexicalScore < 0.72 || !hasCompatibleIntent(query, offer || {})) return 0;
+  return lexicalScore;
+}
+
 function offerShape(store, data) {
   const price = roundMoney(data.price, 2);
+  const suppliedOriginalPrice = roundMoney(data.originalPrice, 2);
+  const originalPrice = suppliedOriginalPrice > price ? suppliedOriginalPrice : 0;
+  const calculatedDiscount = originalPrice > 0 ? ((originalPrice - price) / originalPrice) * 100 : 0;
+  const discountPercent = Math.max(0, Math.round(numberFrom(data.discountPercent) || calculatedDiscount));
   const metric = data.metric || parsePackageMetric(`${data.name || ""} ${data.packageLabel || ""}`);
   const unit = normalizeComparisonUnit(data.unit || (metric && metric.unit));
   const normalizedPrice = roundMoney(data.normalizedPrice || comparablePrice(price, metric));
@@ -269,6 +337,10 @@ function offerShape(store, data) {
     brand: String(data.brand || "").trim(),
     category: String(data.category || "").trim(),
     price,
+    originalPrice,
+    discountPercent,
+    isPromotion: Boolean(data.isPromotion || originalPrice > 0 || discountPercent > 0),
+    promotionText: String(data.promotionText || "").trim(),
     normalizedPrice,
     normalizedUnit: unit,
     packageAmount: metric && metric.amount ? roundMoney(metric.amount) : 0,
@@ -305,6 +377,9 @@ export function mapMercadonaHit(hit) {
     brand: hit.brand,
     category: categoryName(hit.categories),
     price: price.unit_price,
+    originalPrice: price.price_decreased ? price.previous_unit_price : 0,
+    isPromotion: price.price_decreased === true,
+    promotionText: price.price_decreased ? "Precio rebajado" : "",
     normalizedPrice: price.reference_price,
     unit,
     metric: sizeMetric,
@@ -323,8 +398,12 @@ export function mapDiaItem(item) {
     id: item.object_id || item.sku_id,
     name: item.display_name,
     brand: item.brand,
-    category: item.l2_category_description || item.l1_category_description,
+    category: [item.l1_category_description, item.l2_category_description].filter(Boolean).join(" > "),
     price: prices.price,
+    originalPrice: prices.strikethrough_price,
+    discountPercent: prices.discount_percentage,
+    isPromotion: prices.is_promo_price === true || prices.is_club_price === true,
+    promotionText: prices.is_club_price ? "Precio Club DIA" : prices.is_promo_price ? "Oferta DIA" : "",
     normalizedPrice: prices.price_per_unit,
     unit,
     packageLabel: (parsePackageMetric(item.display_name) || {}).label,
@@ -340,27 +419,33 @@ export function mapAldiHit(hit) {
   const category = hit.hierarchicalCategories && Array.isArray(hit.hierarchicalCategories.lvl1)
     ? String(hit.hierarchicalCategories.lvl1[0] || "").split(">").pop().trim()
     : hit.mainCategoryID;
+  const currentPrice = hit.currentPrice || {};
+  const basePrice = Array.isArray(currentPrice.basePrice) ? currentPrice.basePrice[0] : null;
   return offerShape(store, {
     id: hit.objectID || hit.productSlug,
     name: hit.name,
     brand: hit.brandName,
     category,
-    price: hit.currentPrice && hit.currentPrice.priceValue,
+    price: currentPrice.priceValue,
+    normalizedPrice: basePrice && basePrice.basePriceValue,
+    unit: basePrice && basePrice.basePriceScale,
     packageLabel: hit.salesUnit,
     available: hit.isAvailable !== false && hit.isRecall !== true,
     imageUrl: primaryAsset && primaryAsset.url,
     productUrl: hit.productSlug ? `https://www.aldi.es/producto/${hit.productSlug}.html` : store.homeUrl,
-    sourceUpdatedAt: hit.currentPrice && hit.currentPrice.validFrom
-      ? new Date(Number(hit.currentPrice.validFrom) * 1000).toISOString()
+    sourceUpdatedAt: currentPrice.validFrom
+      ? new Date(Number(currentPrice.validFrom) * 1000).toISOString()
       : null,
   });
 }
 
 export function mapCarrefourItem(item) {
   const store = storeMeta("carrefour");
-  const unit = normalizeComparisonUnit(item.unit_short_name || item.measure_unit);
-  const amount = numberFrom(item.unit_conversion_factor);
-  const metric = unit && amount > 0 ? { amount, unit } : parsePackageMetric(item.display_name);
+  const namedMetric = parsePackageMetric(item.display_name);
+  const averageWeight = numberFrom(item.average_weight);
+  const averageMetric = item.variable_weight === true && averageWeight > 0 ? metricFrom(averageWeight, "g") : null;
+  const metric = averageMetric || namedMetric;
+  const unit = normalizeComparisonUnit((metric && metric.unit) || item.unit_short_name || item.measure_unit);
   const productPath = item.url_for_play_service || (item.urls && item.urls.food) || "";
   return offerShape(store, {
     id: item.product_id || item.catalog_ref_id || item.ean13,
@@ -370,7 +455,7 @@ export function mapCarrefourItem(item) {
     price: item.active_price,
     metric,
     unit,
-    packageLabel: (parsePackageMetric(item.display_name) || {}).label,
+    packageLabel: averageMetric ? `${averageWeight} g aprox.` : (namedMetric || {}).label,
     available: item.active_food !== false,
     imageUrl: item.image_for_play_service || (item.image_path && item.image_path.food),
     productUrl: productPath ? `https://www.carrefour.es${productPath}` : store.homeUrl,
@@ -481,16 +566,35 @@ export function parseAhorramasHtml(html) {
     const image = decodeHtml((block.match(/<img[^>]+class="tile-image"[^>]+src="([^"]+)"/i) || [])[1] || "");
     const unitText = (block.match(/class="unit-price-per-unit[^"]*"[^>]*>([\s\S]*?)<\/span>/i) || [])[1] || "";
     const base = parseUnitPrice(unitText);
+    const salesPrice = numberFrom((block.match(/class="sales"[\s\S]*?class="value"[^>]*content="([^"]+)"/i) || [])[1]);
+    const listPrice = numberFrom((block.match(/class="strike-through list"[\s\S]*?class="value"[^>]*content="([^"]+)"/i) || [])[1]);
+    const cartTag = (block.match(/<div[^>]+class="[^"]*add-to-cart[^"]*"[^>]*>/i) || [])[0] || "";
+    const cartPrice = numberFrom((cartTag.match(/data-price="([^"]+)"/i) || [])[1]);
+    const mediumWeight = numberFrom((cartTag.match(/data-mediumweight="([^"]+)"/i) || [])[1]);
+    const variableWeight = /data-hasunitweight="true"/i.test(cartTag);
+    const namedMetric = parsePackageMetric(data.name);
+    const metric = variableWeight && mediumWeight > 0 ? metricFrom(mediumWeight, "kg") : namedMetric;
+    const currentPrice = variableWeight && metric
+      ? cartPrice || roundMoney((salesPrice || (base && base.value)) * metric.amount, 2)
+      : cartPrice || salesPrice || numberFrom(data.price);
+    const originalPrice = listPrice > 0
+      ? variableWeight && metric ? roundMoney(listPrice * metric.amount, 2) : listPrice
+      : 0;
+    const promoBlock = (block.match(/<div[^>]+class="[^"]*tile-promo-callout[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/i) || [])[1] || "";
     const store = storeMeta("ahorramas");
     return [offerShape(store, {
       id: data.id || marker[1],
       name: data.name,
       brand: data.brand,
       category: data.category,
-      price: data.price,
+      price: currentPrice,
+      originalPrice,
+      isPromotion: originalPrice > currentPrice,
+      promotionText: stripHtml(promoBlock) || (originalPrice > currentPrice ? "Bajada de precio" : ""),
       normalizedPrice: base && base.value,
       unit: base && base.unit,
-      packageLabel: (parsePackageMetric(data.name) || {}).label,
+      metric,
+      packageLabel: (namedMetric || {}).label,
       available: !/data-available="false"/i.test(block),
       imageUrl: image,
       productUrl: href ? new URL(href, "https://www.ahorramas.com").toString() : store.homeUrl,
@@ -772,8 +876,8 @@ async function searchExpanded(search, query, limit, fetcher) {
 function rankOffers(query, offers, limit) {
   return offers
     .filter((offer) => offer.name && offer.price > 0)
-    .map((offer) => ({ ...offer, matchScore: productMatchScore(query, offer.name) }))
-    .filter((offer) => offer.matchScore >= 0.55)
+    .map((offer) => ({ ...offer, matchScore: offerMatchScore(query, offer) }))
+    .filter((offer) => offer.matchScore >= 0.72)
     .sort((a, b) => {
       const scoreGap = b.matchScore - a.matchScore;
       if (Math.abs(scoreGap) > 0.2) return scoreGap;
@@ -786,7 +890,7 @@ function rankOffers(query, offers, limit) {
 }
 
 function comparisonSummary(stores) {
-  const candidates = stores.flatMap((store) => store.offers || []).filter((offer) => offer.normalizedPrice > 0 && offer.matchScore >= 0.5);
+  const candidates = stores.flatMap((store) => store.offers || []).filter((offer) => offer.normalizedPrice > 0 && offer.matchScore >= 0.72);
   const unitCounts = candidates.reduce((counts, offer) => {
     counts[offer.normalizedUnit] = (counts[offer.normalizedUnit] || 0) + 1;
     return counts;
@@ -797,7 +901,7 @@ function comparisonSummary(stores) {
   const bestByStore = stores
     .map((store) => {
       const offer = (store.offers || [])
-        .filter((item) => item.normalizedUnit === unit && item.normalizedPrice > 0 && item.matchScore >= 0.5)
+        .filter((item) => item.normalizedUnit === unit && item.normalizedPrice > 0 && item.matchScore >= 0.72)
         .sort((a, b) => a.normalizedPrice - b.normalizedPrice)[0];
       return offer ? { storeKey: store.key, store: store.label, offer } : null;
     })

@@ -3,7 +3,9 @@ import {
   cleanComparisonQuery,
   comparePrices,
   comparablePrice,
+  mapCarrefourItem,
   normalizeEnabledStoreKeys,
+  offerMatchScore,
   parseAhorramasHtml,
   parseAlcampoHtml,
   parseBasePrice,
@@ -31,6 +33,17 @@ assert.ok(productMatchScore("picos de pan", "Picos gourmet 130 g") > 0.9);
 assert.equal(productMatchScore("picos de pan", "Pan de picos integral"), 0);
 assert.ok(productMatchScore("leche entera 1 l", "Leche entera") > 0.9);
 assert.ok(productMatchScore("leche entera 1 l", "Leche semidesnatada") < 0.55);
+assert.ok(offerMatchScore("pechuga pollo", { name: "Pechuga de pollo fileteada 600 g", category: "Carnicería > Aves" }) >= 0.72);
+assert.equal(offerMatchScore("pechuga pollo", { name: "Pechuga de pavo Frial asada", category: "Charcutería > Fiambres" }), 0);
+assert.equal(offerMatchScore("pechuga pollo", { name: "Pechuga de pollo 95% al horno", category: "Charcutería > Pavo y pollo" }), 0);
+assert.equal(offerMatchScore("pechuga pollo", { name: "Fiambre de pechuga de pollo 240 g", category: "Carnes > Pollo" }), 0);
+assert.equal(offerMatchScore("pechuga pollo", { name: "Pechugas de pollo enteras congeladas", category: "Carne > Congelados" }), 0);
+assert.equal(offerMatchScore("pechuga pollo", { name: "LOTE 1 kg pechugas + 1 kg jamoncitos de pollo", category: "Aves" }), 0);
+assert.equal(offerMatchScore("pechuga pollo", { name: "Pollo troceado con pechuga extra", category: "Carne" }), 0);
+assert.equal(offerMatchScore("pechuga pollo", { name: "Solomillo de pechuga de pollo", category: "Carne" }), 0);
+assert.equal(offerMatchScore("pechuga pollo", { name: "Pechuga de pollo villaroy", category: "Empanados y elaborados" }), 0);
+assert.equal(offerMatchScore("pechuga pollo", { name: "Pechuga de pollo 2u al natural", category: "Patés en conserva" }), 0);
+assert.equal(offerMatchScore("filete pechuga pollo", { name: "Pechuga de pollo entera", category: "Aves" }), 0);
 assert.equal(cleanComparisonQuery("1 DISCOS DESM REDONDO"), "DISCOS DESM REDONDO");
 assert.deepEqual(queryVariants("queso de untar"), ["queso de untar", "queso untar", "crema de queso"]);
 assert.deepEqual(queryVariants("queso de untar natural"), ["queso de untar natural", "queso untar natural", "crema de queso natural"]);
@@ -51,6 +64,8 @@ const mercadonaHit = {
     unit_size: 22,
     size_format: "ud",
     total_units: 22,
+    price_decreased: true,
+    previous_unit_price: "7.30",
   },
 };
 
@@ -60,7 +75,16 @@ const diaItem = {
   brand: "Dia Planeta Bebe",
   units_in_stock: 10,
   url: "/infantil/p/d1",
-  prices: { price: 8.02, price_per_unit: 0.29, measure_unit: "UNIDAD" },
+  l1_category_description: "Bebé",
+  l2_category_description: "Pañales",
+  prices: {
+    price: 8.02,
+    price_per_unit: 0.29,
+    measure_unit: "UNIDAD",
+    strikethrough_price: 9.45,
+    discount_percentage: 15,
+    is_promo_price: true,
+  },
 };
 
 const aldiHit = {
@@ -70,7 +94,7 @@ const aldiHit = {
   isAvailable: true,
   isRecall: false,
   productSlug: "panales-bebe-talla-6-aldi-340000",
-  currentPrice: { priceValue: 8.84, validFrom: 1783461600 },
+  currentPrice: { priceValue: 8.84, validFrom: 1783461600, basePrice: [{ basePriceValue: 0.26, basePriceScale: "unidad" }] },
   salesUnit: "34 unidades",
   mainCategoryID: "bebe-e-infantil",
   hierarchicalCategories: { lvl1: ["Bebe e infantil > Panales"] },
@@ -87,6 +111,17 @@ const carrefourItem = {
   unit_short_name: "ud",
   image_for_play_service: "https://static.carrefour.es/test.jpg",
   url_for_play_service: "/supermercado/panales-talla-6/R-c1/p",
+};
+const carrefourChicken = {
+  product_id: "c2",
+  display_name: "Filetes de pechuga pollo corte fino El Mercado 600 g aprox",
+  brand: "El Mercado",
+  active_food: true,
+  active_price: 4.55,
+  variable_weight: true,
+  average_weight: 600,
+  unit_conversion_factor: 0.001,
+  unit_short_name: "kg",
 };
 
 const alcampoState = {
@@ -120,6 +155,14 @@ const ahorramasLayer = encodeURIComponent(JSON.stringify({
   price: "7.92",
 }));
 const ahorramasHtml = `<div class="product viewed" data-pid="h1"><a href="/panales-talla-6-h1.html" class="product-pdp-link" data-gtm-layer="${ahorramasLayer}"><img class="tile-image" src="https://www.ahorramas.com/test.jpg"></a><span class="unit-price-per-unit grey">0,22€/UD</span><div data-available="true"></div></div>`;
+const ahorramasPromoLayer = encodeURIComponent(JSON.stringify({
+  id: "h2",
+  name: "LOTE 2 kg pechugas de pollo",
+  brand: "Ahorramas",
+  category: "Aves",
+  price: "7.99",
+}));
+const ahorramasPromoHtml = `<div class="product viewed" data-pid="h2"><a href="/lote-pechugas-h2.html" class="product-pdp-link" data-gtm-layer="${ahorramasPromoLayer}"></a><span class="strike-through list"><span class="value" content="7.99">7,99</span></span><span class="sales"><span class="value" content="7.49">7,49</span></span><span class="unit-price-per-unit grey">7,49€/Kg</span><div class="add-to-cart" data-hasunitweight="true" data-price="14.98" data-mediumweight="2.0"></div><div class="tile-promo-callout red">Bajada de precio a <span class="promo-price">7.49€</span></div></div>`;
 const hipercorHtml = `<script type="application/ld+json">${JSON.stringify({
   "@type": "Product",
   name: "Pañales talla 6 Hipercor 30 unidades",
@@ -136,11 +179,19 @@ const hipercorMarkdown = `* [![Image 1](https://sgfm.elcorteingles.es/panales.jp
 
 assert.equal(parseAlcampoHtml(alcampoHtml)[0].normalizedPrice, 0.21);
 assert.equal(parseAhorramasHtml(ahorramasHtml)[0].normalizedPrice, 0.22);
+const ahorramasPromotion = parseAhorramasHtml(ahorramasPromoHtml)[0];
+assert.equal(ahorramasPromotion.price, 14.98);
+assert.equal(ahorramasPromotion.originalPrice, 15.98);
+assert.equal(ahorramasPromotion.normalizedPrice, 7.49);
+assert.equal(ahorramasPromotion.discountPercent, 6);
+assert.equal(ahorramasPromotion.isPromotion, true);
 assert.equal(parseHipercorHtml(hipercorHtml)[0].normalizedPrice, 0.32);
 assert.equal(parseHipercorHtml(hipercorCardHtml)[0].normalizedPrice, 1.17);
 assert.equal(parseHipercorHtml(hipercorCurrentCardHtml)[0].packageAmount, 72);
 assert.equal(parseHipercorHtml(hipercorCurrentCardHtml)[0].normalizedPrice, 0.029);
 assert.equal(parseHipercorMarkdown(hipercorMarkdown)[0].normalizedPrice, 0.32);
+assert.equal(mapCarrefourItem(carrefourChicken).normalizedPrice, 7.583);
+assert.equal(mapCarrefourItem(carrefourChicken).packageLabel, "600 g aprox.");
 assert.deepEqual(normalizeEnabledStoreKeys(["lidl", "aldi"]), ["aldi"]);
 
 let mercadonaIndexUrl = "";
@@ -169,6 +220,9 @@ assert.equal(comparison.comparison.cheapest.store, "Alcampo");
 assert.equal(comparison.comparison.cheapest.offer.normalizedPrice, 0.21);
 assert.equal(comparison.stores[0].offers[0].packageAmount, 22);
 assert.equal(comparison.stores[0].offers[0].packageLabel, "Paquete | 22 unidades");
+assert.equal(comparison.stores[0].offers[0].originalPrice, 7.3);
+assert.equal(comparison.stores[1].offers[0].discountPercent, 15);
+assert.equal(comparison.stores[5].offers[0].normalizedPrice, 0.26);
 assert.match(mercadonaIndexUrl, /products_prod_mad3_es/);
 assert.equal(Object.hasOwn(comparison, "upcomingStores"), false);
 
