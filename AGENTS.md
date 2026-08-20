@@ -18,14 +18,14 @@ Read this file and `README.md` before changing the project. The GitHub repositor
 
 - `web/index.html`: complete client, styles, PDF text extraction, Tesseract OCR, parsing, settings and review UI.
 - `server/index.js`: Worker backend, authentication, D1 schema, receipts, settings and dashboard API.
-- `server/comparison.js`: independent store adapters, upcoming sources, matching, normalization and short-lived cache.
+- `server/comparison.js`: independent store adapters, matching, normalization and short-lived cache.
 - `scripts/build.mjs`: creates the deployable `dist/` tree.
 - `scripts/dev_server.mjs`: local preview server with compare/settings/shopping-plan endpoints.
 - `scripts/test_client.mjs`: deterministic client parser fixtures, including Hipercor paper ticket format.
 - `scripts/test_comparison.mjs`: deterministic adapter and price-normalization fixtures.
 - `.openai/hosting.json`: current OpenAI Sites project ID and D1 binding.
-- `.github/workflows/deploy-cloudflare.yml`: manual Cloudflare deployment once repository secrets are configured.
-- `cloudflare/wrangler.template.jsonc`: Wrangler template populated by the GitHub workflow.
+- `.github/workflows/deploy-cloudflare.yml`: automatic Cloudflare deployment from `main` once repository secrets are configured.
+- `wrangler.jsonc`: production Worker bindings for D1 and Browser Run.
 
 ## Work From A Fresh Computer
 
@@ -52,17 +52,16 @@ Required GitHub repository secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_D1_DATABASE_ID`
 - `INVITE_CODE`
 
-The workflow `Deploy Cloudflare` is manual (`workflow_dispatch`) to avoid failing on branches before the Cloudflare D1 database exists. The app creates tables automatically at runtime through `ensureSchema`.
+The workflow `Deploy Cloudflare` runs automatically on every push to `main` and can also be launched manually. It configures `INVITE_CODE` as a Worker secret before deploying.
 
 ## Current Comparison Behavior
 
 - Active sources: Mercadona, DIA, Carrefour, Alcampo, Ahorramas, Aldi and Hipercor.
 - Lidl is intentionally removed from the comparator because it does not provide a full usable price catalogue.
-- Hipercor is selectable and parsed from JSON-LD when available; if the public site blocks automated requests, it appears as unavailable.
-- Upcoming sources shown in the UI: Supercor and Eroski.
+- Hipercor is selectable and parsed from its public catalogue. The adapter tries structured HTML, Cloudflare Browser Run and then a text-reader fallback; if all fail, it appears as unavailable.
+- Supercor and Eroski are not shown as pending sources.
 - Store selection is persisted per user in `user_settings`.
 - All active requests run independently; one failure must not fail the entire comparison.
 - Results include source links, retrieval time, pack price and normalized price when available.
@@ -74,7 +73,7 @@ The workflow `Deploy Cloudflare` is manual (`workflow_dispatch`) to avoid failin
 ## Ticket Parsing Notes
 
 - Keep OCR/import parsing client-side unless storage or background processing is explicitly added.
-- Hipercor paper tickets use lines like `KINDER MAXI 10 UNIDA 2 B 7,98`; parse quantity `2`, unit price `3,99` and total `7,98`.
+- Hipercor paper tickets use lines like `KINDER MAXI 10 UNIDA 2 B 7,98`; parse quantity `2`, unit price `3,99` and total `7,98`. OCR variants such as `SANCHINARRO HIFER` and `KINDER MAXI 1(1 UNIDA 28 7,98` must also activate this parser.
 - Ignore tax/payment/footer lines such as `Precio unitario`, `IVA`, `EFECTIVO`, `CAMBIO`, `Base`, `Cuota` and control codes.
 - Preserve manual review. OCR output must never be saved without letting the user fix it.
 - Product text corrections should be conservative and visible in tests.

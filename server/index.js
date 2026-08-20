@@ -218,12 +218,15 @@ async function register(request, env) {
   if (password.length < 6) {
     return json({ error: "Contraseña demasiado corta" }, 400);
   }
-  if (env.INVITE_CODE && inviteCode !== env.INVITE_CODE) {
-    return json({ error: "Código de invitación incorrecto" }, 403);
-  }
   const count = await getUserCount(env);
   if (count >= MAX_USERS) {
     return json({ error: "Límite de usuarios alcanzado" }, 403);
+  }
+  if (count > 0 && !env.INVITE_CODE) {
+    return json({ error: "El registro por invitación no está disponible" }, 503);
+  }
+  if (count > 0 && inviteCode !== env.INVITE_CODE) {
+    return json({ error: "Código de invitación incorrecto" }, 403);
   }
   const salt = randomHex(16);
   const passwordHash = await hashPassword(password, salt);
@@ -559,7 +562,7 @@ async function compareSearch(request, env) {
   const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") || 6), 8));
   try {
     const enabledStores = await readUserEnabledStores(env, auth.user.id);
-    return json({ ok: true, ...(await comparePrices(query, { limit, enabledStores })) });
+    return json({ ok: true, ...(await comparePrices(query, { limit, enabledStores, browser: env.BROWSER })) });
   } catch (error) {
     return json({ error: String(error && error.message || "No se pudo comparar") }, 400);
   }

@@ -4,9 +4,9 @@ Web multiusuario para subir tickets de supermercado, revisar líneas de compra y
 
 ## Web Actual
 
-https://ticket-gastos-super.erpozi.chatgpt.site
+https://ticket-gastos-super.joseluispina7.workers.dev
 
-Esa URL sigue funcionando durante la migración. El código vive en GitHub para que cualquier ChatGPT/Codex con acceso al repositorio pueda continuar el proyecto. Cloudflare Workers + D1 usa el mismo repositorio como fuente de publicación independiente.
+Esta es la publicación independiente en Cloudflare Workers + D1. El código vive en GitHub para que cualquier ChatGPT/Codex con acceso al repositorio pueda continuar y publicar el proyecto sin depender de una cuenta concreta de ChatGPT.
 
 ## Producto
 
@@ -19,7 +19,7 @@ Esa URL sigue funcionando durante la migración. El código vive en GitHub para 
 - Categorías aprendidas por usuario, con nombres canónicos como `Lácteos`, `Bebé`, `Panadería` y `Charcutería`.
 - Dashboard mensual con total, tickets, productos únicos, categoría top, donut de categorías, gasto por supermercado, histórico, total anual y top productos con sus unidades.
 - Comparador configurable desde Ajustes.
-- Plan de compra privado por usuario, con tienda, precio estimado y ahorro comparable.
+- Cesta privada por usuario, con tienda, precio estimado y ahorro comparable.
 - Estado vacío real: la aplicación no muestra supermercados ni importes inventados.
 
 ## Fuentes Del Comparador
@@ -32,16 +32,11 @@ Activas:
 - Alcampo mediante el estado de catálogo publicado en su página de resultados.
 - Ahorramas mediante las fichas estructuradas de su buscador online.
 - Aldi mediante su índice público de Algolia, con región de península.
-- Hipercor mediante su buscador público. Como su web bloquea normalmente las consultas de servidor, el adaptador usa Jina Reader como vía de lectura de respaldo y nunca inventa precios.
+- Hipercor mediante su buscador público. Como su web bloquea normalmente las consultas de servidor, el adaptador usa Cloudflare Browser Run y después un lector de texto como respaldos; nunca inventa precios.
 
 Quitada:
 
 - Lidl. No se usa ya en el comparador porque no publica un catálogo completo de precios, solo parte de ofertas/productos.
-
-Pendientes:
-
-- Supercor: pendiente de adaptar el catálogo de El Corte Inglés/Supercor.
-- Eroski: pendiente de fixture y adaptador regional.
 
 El comparador normaliza por `EUR/kg`, `EUR/L` o `EUR/unidad`, con enlace y fecha de consulta cuando la fuente lo permite. Nunca se inventan resultados cuando una fuente no responde.
 
@@ -68,10 +63,10 @@ También corrige palabras comunes sin acento al limpiar productos, por ejemplo `
 - `server/comparison.js`: adaptadores, normalización, similitud y comparación de precios.
 - `scripts/build.mjs`: genera `dist/`.
 - `scripts/test_client.mjs`: valida parser, categorías y reconstrucción de líneas de PDF.
-- `scripts/test_comparison.mjs`: valida formatos, sinónimos, fuentes activas con fixtures y tiendas pendientes.
+- `scripts/test_comparison.mjs`: valida formatos, sinónimos, fuentes activas y respaldo de navegador con fixtures.
 - `scripts/dev_server.mjs`: servidor local con preview, comparador, ajustes y plan local.
 - `.openai/hosting.json`: proyecto actual de Sites.
-- `wrangler.jsonc`: configuración activa de Cloudflare Workers y enlace a D1.
+- `wrangler.jsonc`: configuración activa de Cloudflare Workers, D1 y Browser Run.
 - `.github/workflows/deploy-cloudflare.yml`: despliegue automático de `main` a Cloudflare.
 - `cloudflare/wrangler.template.jsonc`: plantilla reutilizable para otra cuenta de Cloudflare.
 
@@ -124,10 +119,10 @@ Estado actual:
 - La base D1 `ticket-gastos-super` está creada y enlazada en `wrangler.jsonc` mediante el binding `DB`.
 - La app crea sus tablas D1 automáticamente al primer uso con `ensureSchema`.
 - GitHub Actions usa `main`, ejecuta `node scripts/check.mjs` y despliega con `npx wrangler deploy`.
-- El repositorio necesita los secretos `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_API_TOKEN`. El token debe estar limitado a Workers y D1 de esta cuenta.
+- El repositorio necesita los secretos `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` e `INVITE_CODE`. El token debe estar limitado a Workers y D1 de esta cuenta.
 - El despliegue también se puede lanzar manualmente desde la pestaña Actions de GitHub.
 
-El único valor privado opcional es `INVITE_CODE`. Se configura como secreto del Worker en Cloudflare, nunca en el repositorio. Si no existe, la app permite registrar hasta 3 usuarios sin código.
+`INVITE_CODE` se guarda como secreto de GitHub y del Worker, nunca en el repositorio. La primera cuenta puede inicializar una base vacía; después, toda alta requiere el código. Si el secreto falta, el registro queda cerrado en lugar de permitir usuarios sin invitación.
 
 ## Publicación En Sites
 

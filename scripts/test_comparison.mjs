@@ -151,7 +151,30 @@ assert.deepEqual(comparison.stores.map((store) => store.status), ["ok", "ok", "o
 assert.equal(comparison.comparison.unit, "unit");
 assert.equal(comparison.comparison.cheapest.store, "Alcampo");
 assert.equal(comparison.comparison.cheapest.offer.normalizedPrice, 0.21);
-assert.deepEqual(comparison.upcomingStores.map((store) => store.key), ["supercor", "eroski"]);
+assert.equal(Object.hasOwn(comparison, "upcomingStores"), false);
+
+async function blockedHipercorFetch(url) {
+  if (String(url).includes("r.jina.ai")) return new Response("rate limited", { status: 429 });
+  if (String(url).includes("hipercor.es")) return new Response("forbidden", { status: 403 });
+  return new Response("not found", { status: 404 });
+}
+
+const browser = {
+  async quickAction(action, options) {
+    assert.equal(action, "markdown");
+    assert.match(options.url, /hipercor\.es\/supermercado\/buscar/);
+    return new Response(hipercorMarkdown, { headers: { "content-type": "text/markdown" } });
+  },
+};
+const browserComparison = await comparePrices("panales talla 6", {
+  fetcher: blockedHipercorFetch,
+  browser,
+  cache: false,
+  limit: 3,
+  enabledStores: ["hipercor"],
+});
+assert.equal(browserComparison.stores[0].status, "ok");
+assert.equal(browserComparison.stores[0].offers[0].normalizedPrice, 0.32);
 
 const limited = await comparePrices("panales talla 6", { fetcher: fixtureFetch, cache: false, limit: 3, enabledStores: ["mercadona", "aldi"] });
 assert.deepEqual(limited.stores.map((store) => store.key), ["mercadona", "aldi"]);

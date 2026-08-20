@@ -22,11 +22,6 @@ const STORE_META = [
   { key: "hipercor", label: "Hipercor", mode: "Online", homeUrl: "https://www.hipercor.es/supermercado" },
 ];
 
-const UPCOMING_STORES = [
-  { key: "supercor", label: "Supercor", reason: "pendiente de adaptar el catálogo de El Corte Inglés/Supercor" },
-  { key: "eroski", label: "Eroski", reason: "pendiente de fixture y adaptador regional" },
-];
-
 export const COMPARISON_STORES = STORE_META.map(({ key, label, mode }) => ({ key, label, mode }));
 export const DEFAULT_ENABLED_STORES = COMPARISON_STORES.map((store) => store.key);
 const STORE_KEYS = new Set(DEFAULT_ENABLED_STORES);
@@ -645,7 +640,22 @@ async function searchAhorramas(query, _limit, fetcher) {
   return parseAhorramasHtml(await response.text());
 }
 
-async function searchHipercor(query, _limit, fetcher) {
+async function browserActionText(result) {
+  if (!result) return "";
+  if (typeof result === "string") return result;
+  const text = typeof result.text === "function" ? await result.text() : "";
+  if (text) {
+    try {
+      const payload = JSON.parse(text);
+      return String(payload.markdown || payload.result || payload.content || text);
+    } catch (_error) {
+      return text;
+    }
+  }
+  return String(result.markdown || result.result || result.content || "");
+}
+
+async function searchHipercor(query, _limit, fetcher, browser) {
   const encodedQuery = encodeURIComponent(query);
   const directUrl = `https://www.hipercor.es/supermercado/buscar/?question=${encodedQuery}&catalog=supermercado&stype=text_box`;
   try {
@@ -660,7 +670,17 @@ async function searchHipercor(query, _limit, fetcher) {
     const offers = parseHipercorHtml(await response.text());
     if (offers.length) return offers;
   } catch (_error) {
-    // Hipercor normally rejects server-side requests; use its public page through a text reader.
+    // Hipercor normally rejects plain server-side requests.
+  }
+
+  if (browser && typeof browser.quickAction === "function") {
+    try {
+      const markdown = await browserActionText(await browser.quickAction("markdown", { url: directUrl }));
+      const offers = parseHipercorMarkdown(markdown);
+      if (offers.length) return offers;
+    } catch (_error) {
+      // Keep the public text-reader fallback available if Browser Run is temporarily exhausted.
+    }
   }
 
   const readerUrl = `https://r.jina.ai/http://www.hipercor.es/supermercado/buscar/?question=${encodedQuery}%26catalog=supermercado%26stype=text_box`;
@@ -754,7 +774,7 @@ export async function comparePrices(query, options = {}) {
   };
   const activeMeta = STORE_META.filter((store) => enabledStores.includes(store.key));
   const searches = activeMeta.map((store) => adapters[store.key]);
-  const results = await Promise.allSettled(searches.map((search) => search(cleanQuery, limit, fetcher)));
+  const results = await Promise.allSettled(searches.map((search) => search(cleanQuery, limit, fetcher, options.browser)));
   const stores = activeMeta.map((meta, index) => {
     const result = results[index];
     if (result.status === "rejected") {
@@ -770,7 +790,6 @@ export async function comparePrices(query, options = {}) {
     cached: false,
     stores,
     comparison: comparisonSummary(stores),
-    upcomingStores: UPCOMING_STORES,
   };
   if (options.cache !== false) cacheSet(cacheKey, value);
   return value;

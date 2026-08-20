@@ -138,7 +138,8 @@ assert.equal(parsedHipercor.items[4].category, "Limpieza");
 assert.ok(!parsedHipercor.items.some((item) => /Precio unitario|IVA|EFECTIVO/i.test(item.name)));
 
 const hipercorMobileOcr = [
-  "HIPERCOR",
+  "EL CORTE INGLES, S.A.",
+  "SANCHINARRO HIFER",
   "17/ago/26 20:43",
   "VINAGRE VINO EL.ANCO 18 0,69",
   "MENTA CON CHOCOLATE 18 3,45",
@@ -151,6 +152,7 @@ const hipercorMobileOcr = [
 ].join("\n");
 
 const parsedHipercorMobile = parseReceiptText(hipercorMobileOcr);
+assert.equal(parsedHipercorMobile.store, "Hipercor");
 assert.equal(parsedHipercorMobile.items.length, 5);
 assert.equal(parsedHipercorMobile.items[0].name, "VINAGRE VINO BLANCO");
 assert.equal(parsedHipercorMobile.items[0].category, "Platos y conservas");

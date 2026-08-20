@@ -24,6 +24,15 @@ jobs:
 
       - run: node scripts/check.mjs
 
+      - name: Configure invite code
+        run: |
+          test -n "$INVITE_CODE"
+          printf '%s' "$INVITE_CODE" | npx --yes wrangler@latest secret put INVITE_CODE --config wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          INVITE_CODE: ${{ secrets.INVITE_CODE }}
+
       - name: Deploy Worker
         run: npx --yes wrangler@latest deploy --config wrangler.jsonc
         env:
