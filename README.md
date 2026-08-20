@@ -72,7 +72,7 @@ También corrige palabras comunes sin acento al limpiar productos, por ejemplo `
 - `scripts/dev_server.mjs`: servidor local con preview, comparador, ajustes y plan local.
 - `.openai/hosting.json`: proyecto actual de Sites.
 - `wrangler.jsonc`: configuración activa de Cloudflare Workers y enlace a D1.
-- `.github/workflows/deploy-cloudflare.yml`: alternativa manual de despliegue si se necesitara.
+- `.github/workflows/deploy-cloudflare.yml`: despliegue automático de `main` a Cloudflare.
 - `cloudflare/wrangler.template.jsonc`: plantilla reutilizable para otra cuenta de Cloudflare.
 
 ## Trabajar Desde Cualquier ChatGPT
@@ -91,7 +91,7 @@ Lee README.md y AGENTS.md antes de tocar nada.
 Haz los cambios en una rama codex/<tema>.
 Ejecuta node scripts/check.mjs antes de terminar.
 No guardes secretos en el repositorio.
-Publica los cambios en la rama `main`; Cloudflare Builds desplegará esa rama automáticamente.
+Publica los cambios en la rama `main`; GitHub Actions desplegará esa rama automáticamente en Cloudflare.
 ```
 
 Si ese ChatGPT no puede escribir en GitHub, hay que entrar en GitHub con tu cuenta y autorizarlo o añadirlo como colaborador. La edición queda asociada al repo, no a una cuenta concreta de ChatGPT.
@@ -123,8 +123,9 @@ Estado actual:
 
 - La base D1 `ticket-gastos-super` está creada y enlazada en `wrangler.jsonc` mediante el binding `DB`.
 - La app crea sus tablas D1 automáticamente al primer uso con `ensureSchema`.
-- Cloudflare Builds usa `main`, ejecuta `node scripts/check.mjs` y despliega con `npx wrangler deploy`.
-- El workflow manual permanece como alternativa, pero el flujo normal no necesita secretos de Cloudflare en GitHub.
+- GitHub Actions usa `main`, ejecuta `node scripts/check.mjs` y despliega con `npx wrangler deploy`.
+- El repositorio necesita los secretos `CLOUDFLARE_ACCOUNT_ID` y `CLOUDFLARE_API_TOKEN`. El token debe estar limitado a Workers y D1 de esta cuenta.
+- El despliegue también se puede lanzar manualmente desde la pestaña Actions de GitHub.
 
 El único valor privado opcional es `INVITE_CODE`. Se configura como secreto del Worker en Cloudflare, nunca en el repositorio. Si no existe, la app permite registrar hasta 3 usuarios sin código.
 
