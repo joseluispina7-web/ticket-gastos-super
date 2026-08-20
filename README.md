@@ -26,19 +26,21 @@ Esta es la publicación independiente en Cloudflare Workers + D1. El código viv
 
 Activas:
 
-- Mercadona mediante su índice público de búsqueda.
+- Mercadona mediante su índice público de búsqueda para el código postal `28050` (almacén actual `mad3`). La app conserva `total_units`, por ejemplo 150 discos desmaquillantes, para comparar el precio por unidad real.
 - DIA mediante su buscador de catálogo público.
 - Carrefour mediante el índice estructurado del proveedor de su buscador.
 - Alcampo mediante el estado de catálogo publicado en su página de resultados.
 - Ahorramas mediante las fichas estructuradas de su buscador online.
 - Aldi mediante su índice público de Algolia, con región de península.
-- Hipercor mediante su buscador público. Como su web bloquea normalmente las consultas de servidor, el adaptador usa Cloudflare Browser Run y después un lector de texto como respaldos; nunca inventa precios.
+- Hipercor mediante su buscador público. Como su web bloquea normalmente las consultas de servidor y carga las fichas con JavaScript, el adaptador espera a que aparezcan los productos y analiza el HTML renderizado con Cloudflare Browser Run; después mantiene un lector de texto como respaldo. Nunca inventa precios.
 
 Quitada:
 
 - Lidl. No se usa ya en el comparador porque no publica un catálogo completo de precios, solo parte de ofertas/productos.
 
 El comparador normaliza por `EUR/kg`, `EUR/L` o `EUR/unidad`, con enlace y fecha de consulta cuando la fuente lo permite. Nunca se inventan resultados cuando una fuente no responde.
+
+Los prefijos de cantidad que hayan quedado guardados en nombres antiguos (`1 DISCOS...`, `2 SALMÓN...`) se eliminan al mostrar, guardar y buscar. La comparación se inicia manualmente desde el buscador general; las líneas y el top de productos ya no incluyen botones individuales de comparación.
 
 ## Tickets Y OCR
 

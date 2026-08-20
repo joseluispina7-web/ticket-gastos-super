@@ -70,8 +70,17 @@ function normalizeUsername(username) {
   return String(username || "").trim().toLowerCase();
 }
 
-function normalizeProductName(name) {
+function cleanProductDisplayName(name) {
   return String(name || "")
+    .trim()
+    .replace(/^\d+(?:[.,]\d+)?\s+(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+}
+
+function normalizeProductName(name) {
+  return cleanProductDisplayName(name)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -289,9 +298,10 @@ function summarize(items, receipts, month) {
     const category = canonicalCategory(item.category);
     categoryTotal += amount;
     categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
-    const productKey = item.normalized_name || normalizeProductName(item.name);
+    const displayName = cleanProductDisplayName(item.name);
+    const productKey = item.normalized_name || normalizeProductName(displayName);
     const current = productMap.get(productKey) || {
-      name: item.name,
+      name: displayName,
       category,
       total: 0,
       count: 0,
@@ -355,6 +365,10 @@ async function dashboard(request, env) {
     .all();
   const userCount = await getUserCount(env);
   const trend = trendResult.results || [];
+  const items = (itemsResult.results || []).map((item) => ({
+    ...item,
+    name: cleanProductDisplayName(item.name),
+  }));
   const rules = (rulesResult.results || []).map((rule) => ({ ...rule, category: canonicalCategory(rule.category) }));
   const annualTotal = trend.reduce((sum, row) => sum + Number(row.total || 0), 0);
   const annualReceipts = trend.reduce((sum, row) => sum + Number(row.receipts || 0), 0);
@@ -365,7 +379,7 @@ async function dashboard(request, env) {
     maxUsers: MAX_USERS,
     categories: CATEGORIES,
     receipts: receiptsResult.results || [],
-    items: itemsResult.results || [],
+    items,
     trend,
     annual: {
       year: bounds.year,
@@ -374,7 +388,7 @@ async function dashboard(request, env) {
       averageTicket: annualReceipts ? annualTotal / annualReceipts : 0,
     },
     rules,
-    summary: summarize(itemsResult.results || [], receiptsResult.results || [], bounds.clean),
+    summary: summarize(items, receiptsResult.results || [], bounds.clean),
   });
 }
 
@@ -394,7 +408,7 @@ function cleanReceiptPayload(body) {
   const sourceItems = Array.isArray(body.items) ? body.items : [];
   const items = sourceItems
     .map((item) => {
-      const name = String(item.name || "").trim().slice(0, 160);
+      const name = cleanProductDisplayName(item.name);
       const quantity = Math.max(Number(item.quantity || 1), 0.001);
       const rawLineTotal = item.lineTotal !== undefined ? item.lineTotal : item.line_total;
       const rawUnitPrice = item.unitPrice !== undefined ? item.unitPrice : item.unit_price;

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  cleanComparisonQuery,
   comparePrices,
   comparablePrice,
   normalizeEnabledStoreKeys,
@@ -29,14 +30,17 @@ assert.ok(productMatchScore("picos de pan", "Picos gourmet 130 g") > 0.9);
 assert.equal(productMatchScore("picos de pan", "Pan de picos integral"), 0);
 assert.ok(productMatchScore("leche entera 1 l", "Leche entera") > 0.9);
 assert.ok(productMatchScore("leche entera 1 l", "Leche semidesnatada") < 0.55);
+assert.equal(cleanComparisonQuery("1 DISCOS DESM REDONDO"), "DISCOS DESM REDONDO");
 assert.deepEqual(queryVariants("queso de untar"), ["queso de untar", "queso untar", "crema de queso"]);
 assert.deepEqual(queryVariants("queso de untar natural"), ["queso de untar natural", "queso untar natural", "crema de queso natural"]);
 assert.deepEqual(queryVariants("leche entera 1 l"), ["leche entera 1 l", "leche entera"]);
+assert.deepEqual(queryVariants("1 discos desm redondo"), ["discos desm redondo", "discos desmaquillantes redondo", "discos desmaquilladores redondo"]);
 
 const mercadonaHit = {
   id: "m1",
   display_name: "Panales bebe talla 6 Deliplus",
   brand: "Deliplus",
+  packaging: "Paquete",
   published: true,
   share_url: "https://tienda.mercadona.es/product/m1/test",
   price_instructions: {
@@ -45,6 +49,7 @@ const mercadonaHit = {
     reference_format: "ud",
     unit_size: 22,
     size_format: "ud",
+    total_units: 22,
   },
 };
 
@@ -125,18 +130,28 @@ const hipercorHtml = `<script type="application/ld+json">${JSON.stringify({
   offers: { price: 9.6, availability: "https://schema.org/InStock" },
 })}</script>`;
 const hipercorCardHtml = `<div class="food-product-preview-responsive food-typeahead-product-preview-responsive" id="B001020616600035"><div class="food-product-preview-responsive__image"><img src="https://sgfm.elcorteingles.es/leche.jpg"></div><div class="food-prices"><div class="food-prices__price">1,17 €</div><div class="food-prices__measurement-unit">( 1,17 € / Litro )</div></div><a class="food-product-preview-responsive__description" href="/supermercado/B001020616600035-asturiana-leche-semidesnatada-brik-1-l/">leche semidesnatada ASTURIANA</a><span class="food-product-preview-responsive__sale_type">brik <span>|</span> 1 l</span></div>`;
+const hipercorCurrentCardHtml = `<div class="food-product-preview-responsive" id="B001055763300294"><div class="food-product-preview-responsive__image"><img src="https://sgfm.elcorteingles.es/discos.jpg"></div><div class="food-prices"><div class="food-prices__price">2,09 €</div><div class="food-prices__measurement-unit">( 2,09 € / Unidad )</div></div><a class="food-product-preview-responsive__description" href="/supermercado/B001055763300294-demak-up-discos-desmaquillantes-redondos/">discos desmaquillantes redondos DEMAK UP</a><span class="food-product-preview-responsive__sale_type">bolsa <span>|</span> 72 unidades</span><!--v-if--></div></div>`;
 const hipercorMarkdown = `* [![Image 1](https://sgfm.elcorteingles.es/panales.jpg)](http://www.hipercor.es/supermercado/B001028022100999-hipercor-panales-talla-6-paquete-30-unidades/) Añadir Añadir 9,60 € ( 0,32 € / Unidad ) [Pañales talla 6 Hipercor 30 unidades](http://www.hipercor.es/supermercado/B001028022100999-hipercor-panales-talla-6-paquete-30-unidades/)paquete | 30 unidades [(0)](http://www.hipercor.es/supermercado/B001028022100999-hipercor-panales-talla-6-paquete-30-unidades/)`;
 
 assert.equal(parseAlcampoHtml(alcampoHtml)[0].normalizedPrice, 0.21);
 assert.equal(parseAhorramasHtml(ahorramasHtml)[0].normalizedPrice, 0.22);
 assert.equal(parseHipercorHtml(hipercorHtml)[0].normalizedPrice, 0.32);
 assert.equal(parseHipercorHtml(hipercorCardHtml)[0].normalizedPrice, 1.17);
+assert.equal(parseHipercorHtml(hipercorCurrentCardHtml)[0].packageAmount, 72);
+assert.equal(parseHipercorHtml(hipercorCurrentCardHtml)[0].normalizedPrice, 0.029);
 assert.equal(parseHipercorMarkdown(hipercorMarkdown)[0].normalizedPrice, 0.32);
 assert.deepEqual(normalizeEnabledStoreKeys(["lidl", "aldi"]), ["aldi"]);
 
+let mercadonaIndexUrl = "";
 async function fixtureFetch(url) {
+  if (String(url).includes("postal-codes/actions/change-pc")) {
+    return new Response(JSON.stringify({ warehouse_changed: false }), { headers: { "x-customer-wh": "mad3" } });
+  }
   if (String(url).includes("L9KNU74IO7-dsn.algolia.net")) return new Response(JSON.stringify({ hits: [aldiHit] }));
-  if (String(url).includes("7UZJKL1DJ0-dsn.algolia.net")) return new Response(JSON.stringify({ hits: [mercadonaHit] }));
+  if (String(url).includes("7UZJKL1DJ0-dsn.algolia.net")) {
+    mercadonaIndexUrl = String(url);
+    return new Response(JSON.stringify({ hits: [mercadonaHit] }));
+  }
   if (String(url).includes("dia.es")) return new Response(JSON.stringify({ search_items: [diaItem] }));
   if (String(url).includes("api.empathy.co")) return new Response(JSON.stringify({ catalog: { content: [carrefourItem] } }));
   if (String(url).includes("compraonline.alcampo.es")) return new Response(alcampoHtml, { headers: { "content-type": "text/html" } });
@@ -151,6 +166,9 @@ assert.deepEqual(comparison.stores.map((store) => store.status), ["ok", "ok", "o
 assert.equal(comparison.comparison.unit, "unit");
 assert.equal(comparison.comparison.cheapest.store, "Alcampo");
 assert.equal(comparison.comparison.cheapest.offer.normalizedPrice, 0.21);
+assert.equal(comparison.stores[0].offers[0].packageAmount, 22);
+assert.equal(comparison.stores[0].offers[0].packageLabel, "Paquete | 22 unidades");
+assert.match(mercadonaIndexUrl, /products_prod_mad3_es/);
 assert.equal(Object.hasOwn(comparison, "upcomingStores"), false);
 
 async function blockedHipercorFetch(url) {
@@ -161,12 +179,14 @@ async function blockedHipercorFetch(url) {
 
 const browser = {
   async quickAction(action, options) {
-    assert.equal(action, "markdown");
-    assert.match(options.url, /hipercor\.es\/supermercado\/buscar/);
-    return new Response(hipercorMarkdown, { headers: { "content-type": "text/markdown" } });
+    assert.equal(action, "content");
+    assert.match(options.url, /question=discos%20desmaquillantes%20redondo/);
+    assert.equal(options.gotoOptions.waitUntil, "networkidle2");
+    assert.equal(options.waitForSelector.selector, ".food-product-preview-responsive");
+    return new Response(hipercorCurrentCardHtml, { headers: { "content-type": "text/html" } });
   },
 };
-const browserComparison = await comparePrices("panales talla 6", {
+const browserComparison = await comparePrices("1 DISCOS DESM REDONDO", {
   fetcher: blockedHipercorFetch,
   browser,
   cache: false,
@@ -174,7 +194,9 @@ const browserComparison = await comparePrices("panales talla 6", {
   enabledStores: ["hipercor"],
 });
 assert.equal(browserComparison.stores[0].status, "ok");
-assert.equal(browserComparison.stores[0].offers[0].normalizedPrice, 0.32);
+assert.equal(browserComparison.query, "DISCOS DESM REDONDO");
+assert.equal(browserComparison.stores[0].offers[0].packageAmount, 72);
+assert.equal(browserComparison.stores[0].offers[0].normalizedPrice, 0.029);
 
 const limited = await comparePrices("panales talla 6", { fetcher: fixtureFetch, cache: false, limit: 3, enabledStores: ["mercadona", "aldi"] });
 assert.deepEqual(limited.stores.map((store) => store.key), ["mercadona", "aldi"]);

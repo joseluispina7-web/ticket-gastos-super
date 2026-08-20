@@ -7,7 +7,9 @@ const BROWSER_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Appl
 
 const MERCADONA_APP = "7UZJKL1DJ0";
 const MERCADONA_KEY = "9d8f2e39e90df472b4f2e559a116fe17";
-const MERCADONA_INDEX = "products_prod_bcn1_es";
+const MERCADONA_POSTAL_CODE = "28050";
+const MERCADONA_FALLBACK_WAREHOUSE = "mad3";
+const MERCADONA_INDEX_PREFIX = "products_prod";
 const ALDI_APP = "L9KNU74IO7";
 const ALDI_KEY = "83df5acd172c42ab174afa4583232b5d";
 const ALDI_INDEX = "an_prd_es_es_pen_products2";
@@ -43,6 +45,11 @@ const PRODUCT_CONCEPTS = [
     id: "concepto_panales",
     phrases: ["panales", "panal"],
     searchAliases: ["panales"],
+  },
+  {
+    id: "concepto_discos_desmaquillantes",
+    phrases: ["discos desm", "discos desmaquillantes", "discos desmaquilladores"],
+    searchAliases: ["discos desmaquillantes", "discos desmaquilladores"],
   },
 ];
 
@@ -102,7 +109,7 @@ function tokenRoot(token) {
 }
 
 export function queryVariants(value) {
-  const query = String(value || "").trim();
+  const query = cleanComparisonQuery(value);
   const normalized = cleanText(query);
   const variants = [query];
   const withoutPackage = cleanText(removePackageNoise(query));
@@ -118,6 +125,15 @@ export function queryVariants(value) {
     break;
   }
   return [...new Set(variants.filter(Boolean))].slice(0, 5);
+}
+
+export function cleanComparisonQuery(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^\d+(?:[.,]\d+)?\s+(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
 }
 
 function roundMoney(value, digits = 3) {
@@ -274,8 +290,13 @@ export function mapMercadonaHit(hit) {
   const price = hit && hit.price_instructions ? hit.price_instructions : {};
   const unit = normalizeComparisonUnit(price.reference_format);
   const unitSize = numberFrom(price.unit_size);
-  const sizeMetric = unitSize > 0 ? metricFrom(unitSize, price.size_format || price.reference_format) : null;
-  const packageLabel = sizeMetric ? `${unitSize} ${price.size_format || price.reference_format}` : String(hit.packaging || "");
+  const totalUnits = numberFrom(price.total_units);
+  const sizeMetric = unit === "unit" && totalUnits > 1
+    ? { amount: totalUnits, unit: "unit" }
+    : unitSize > 0 ? metricFrom(unitSize, price.size_format || price.reference_format) : null;
+  const packageLabel = unit === "unit" && totalUnits > 1
+    ? [hit.packaging, `${totalUnits} unidades`].filter(Boolean).join(" | ")
+    : sizeMetric ? `${unitSize} ${price.size_format || price.reference_format}` : String(hit.packaging || "");
   return offerShape(store, {
     id: hit.id || hit.objectID,
     name: hit.display_name,
@@ -488,7 +509,26 @@ async function fetchWithTimeout(fetcher, url, options = {}, timeoutMs = SEARCH_T
 }
 
 async function searchMercadona(query, limit, fetcher) {
-  const url = `https://${MERCADONA_APP}-dsn.algolia.net/1/indexes/${MERCADONA_INDEX}/query`;
+  let warehouse = MERCADONA_FALLBACK_WAREHOUSE;
+  try {
+    const postalResponse = await fetchWithTimeout(fetcher, "https://tienda.mercadona.es/api/postal-codes/actions/change-pc/", {
+      method: "PUT",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        origin: "https://tienda.mercadona.es",
+        referer: "https://tienda.mercadona.es/",
+        "user-agent": BROWSER_USER_AGENT,
+      },
+      body: JSON.stringify({ new_postal_code: MERCADONA_POSTAL_CODE }),
+    });
+    const resolved = String(postalResponse.headers.get("x-customer-wh") || "").trim().toLowerCase();
+    if (/^[a-z]{3}\d+$/.test(resolved)) warehouse = resolved;
+  } catch (_error) {
+    // The postcode currently maps to mad3; keep search usable if location lookup is temporarily blocked.
+  }
+  const index = `${MERCADONA_INDEX_PREFIX}_${warehouse}_es`;
+  const url = `https://${MERCADONA_APP}-dsn.algolia.net/1/indexes/${index}/query`;
   const response = await fetchWithTimeout(fetcher, url, {
     method: "POST",
     headers: {
@@ -530,15 +570,20 @@ export function parseHipercorHtml(html) {
     const href = decodeHtml((description[1].match(/href=["']([^"']+)["']/i) || [])[1] || "");
     const image = decodeHtml((block.match(/\bfood-product-preview-responsive__image\b[\s\S]*?<img[^>]+src=["']([^"']+)["']/i) || [])[1] || "");
     const unitText = (block.match(/class=["'][^"']*\bfood-prices__measurement-unit\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) || [])[1] || "";
-    const packageText = (block.match(/<span[^>]+class=["'][^"']*\bfood-product-preview-responsive__sale_type\b[^"']*["'][^>]*>([\s\S]*?)<\/span>\s*(?=<div|<\/div>|<figure|$)/i) || [])[1] || "";
+    const packageText = (block.match(/<span[^>]+class=["'][^"']*\bfood-product-preview-responsive__sale_type\b[^"']*["'][^>]*>([\s\S]*?)<\/span>\s*(?:<!--[\s\S]*?-->\s*)*<\/div>/i) || [])[1] || "";
     const base = parseUnitPrice(unitText);
+    const packageLabel = stripHtml(packageText);
+    const packageMetric = parsePackageMetric(packageLabel);
+    const normalizedPrice = base && packageMetric && base.unit === packageMetric.unit && packageMetric.amount > 1 && base.value >= price * 0.9
+      ? comparablePrice(price, packageMetric)
+      : base && base.value;
     products.push(offerShape(storeMeta("hipercor"), {
       id: marker[1],
       name: stripHtml(description[2]),
       price,
-      normalizedPrice: base && base.value,
+      normalizedPrice,
       unit: base && base.unit,
-      packageLabel: stripHtml(packageText),
+      packageLabel,
       available: !/Agotado temporalmente/i.test(block),
       imageUrl: image,
       productUrl: href ? new URL(href, "https://www.hipercor.es").toString() : storeMeta("hipercor").homeUrl,
@@ -562,11 +607,16 @@ export function parseHipercorMarkdown(markdown) {
     const remainder = block.slice(description.index + description[0].length);
     const packageLabel = remainder.split(/!\[|\[\(\d+\)\]|\r?\n/)[0].replace(/\s+/g, " ").trim();
     const base = parseUnitPrice(block);
+    const packageMetric = parsePackageMetric(packageLabel);
+    const price = numberFrom(priceMatch[1]);
+    const normalizedPrice = base && packageMetric && base.unit === packageMetric.unit && packageMetric.amount > 1 && base.value >= price * 0.9
+      ? comparablePrice(price, packageMetric)
+      : base && base.value;
     return [offerShape(storeMeta("hipercor"), {
       id: marker[3],
       name: description[1].replace(/\s+/g, " ").trim(),
-      price: numberFrom(priceMatch[1]),
-      normalizedPrice: base && base.value,
+      price,
+      normalizedPrice,
       unit: base && base.unit,
       packageLabel,
       available: !/Agotado temporalmente/i.test(block),
@@ -656,7 +706,9 @@ async function browserActionText(result) {
 }
 
 async function searchHipercor(query, _limit, fetcher, browser) {
-  const encodedQuery = encodeURIComponent(query);
+  const variants = queryVariants(query);
+  const sourceQuery = variants.find((variant) => cleanText(variant) !== cleanText(query)) || variants[0] || query;
+  const encodedQuery = encodeURIComponent(sourceQuery);
   const directUrl = `https://www.hipercor.es/supermercado/buscar/?question=${encodedQuery}&catalog=supermercado&stype=text_box`;
   let browserIssue = "binding no disponible";
   try {
@@ -676,8 +728,14 @@ async function searchHipercor(query, _limit, fetcher, browser) {
 
   if (browser && typeof browser.quickAction === "function") {
     try {
-      const markdown = await browserActionText(await browser.quickAction("markdown", { url: directUrl }));
-      const offers = parseHipercorMarkdown(markdown);
+      const content = await browserActionText(await browser.quickAction("content", {
+        url: directUrl,
+        gotoOptions: { waitUntil: "networkidle2", timeout: 45000 },
+        waitForSelector: { selector: ".food-product-preview-responsive", timeout: 30000 },
+        waitForTimeout: 1000,
+        userAgent: BROWSER_USER_AGENT,
+      }));
+      const offers = parseHipercorHtml(content);
       if (offers.length) return offers;
       browserIssue = "respuesta sin productos analizables";
     } catch (error) {
@@ -761,7 +819,7 @@ function cacheSet(key, value) {
 }
 
 export async function comparePrices(query, options = {}) {
-  const cleanQuery = String(query || "").trim().slice(0, 80);
+  const cleanQuery = cleanComparisonQuery(query);
   if (cleanQuery.length < 2) throw new Error("Escribe al menos dos caracteres");
   const limit = Math.max(1, Math.min(Number(options.limit || 6), 8));
   const fetcher = options.fetcher || fetch;

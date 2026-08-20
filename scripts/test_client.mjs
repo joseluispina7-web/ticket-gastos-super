@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const html = await readFile(resolve("web", "index.html"), "utf8");
-assert.match(html, /data-compare-receipt-product/);
+assert.doesNotMatch(html, /data-compare-receipt-product/);
+assert.doesNotMatch(html, /data-compare-product/);
 assert.match(html, /Mercadona, DIA, Carrefour, Alcampo, Ahorramas, Aldi e Hipercor/);
 assert.match(html, /data-view="settings"/);
 assert.match(html, /data-edit=/);

@@ -60,7 +60,8 @@ The workflow `Deploy Cloudflare` runs automatically on every push to `main` and 
 
 - Active sources: Mercadona, DIA, Carrefour, Alcampo, Ahorramas, Aldi and Hipercor.
 - Lidl is intentionally removed from the comparator because it does not provide a full usable price catalogue.
-- Hipercor is selectable and parsed from its public catalogue. The adapter tries structured HTML, Cloudflare Browser Run and then a text-reader fallback; if all fail, it appears as unavailable.
+- Hipercor is selectable and parsed from its public catalogue. The adapter tries structured HTML, waits for `.food-product-preview-responsive` through Cloudflare Browser Run and parses rendered HTML, then uses a text-reader fallback; if all fail, it appears as unavailable.
+- Mercadona price search resolves postcode `28050` and currently falls back to warehouse `mad3`. Preserve `price_instructions.total_units`; `unit_size` alone is not the package count for products such as cotton pads.
 - Supercor and Eroski are not shown as pending sources.
 - Store selection is persisted per user in `user_settings`.
 - All active requests run independently; one failure must not fail the entire comparison.
@@ -78,6 +79,7 @@ The workflow `Deploy Cloudflare` runs automatically on every push to `main` and 
 - Ignore tax/payment/footer lines such as `Precio unitario`, `IVA`, `EFECTIVO`, `CAMBIO`, `Base`, `Cuota` and control codes.
 - Preserve manual review. OCR output must never be saved without letting the user fix it.
 - Product text corrections should be conservative and visible in tests.
+- Strip a leading purchased quantity from product display/search names. Keep quantities inside package descriptions, such as `24 UNID`, `500 G` or `150 unidades`.
 
 ## Next Product Work
 
